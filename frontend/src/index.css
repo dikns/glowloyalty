@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── html5-qrcode styling overrides ── */
+#qr-reader {
+  width: 100% !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+#qr-reader video {
+  width: 100% !important;
+  border-radius: 1rem;
+  display: block;
+}
+
+#qr-reader__scan_region {
+  border-radius: 1rem;
+  overflow: hidden;
+  background: #111 !important;
+}
+
+#qr-reader__scan_region img {
+  display: none !important;
+}
+
+#qr-reader__dashboard {
+  display: none !important;
+}
+
+#qr-reader__status_span {
+  display: none !important;
+}
+
+/* ── smooth transitions ── */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, select, textarea, button {
+  font-family: inherit;
+}
