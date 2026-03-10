@@ -2,10 +2,18 @@
   "name": "glowloyalty",
   "version": "1.0.0",
   "scripts": {
-    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm install && npm run build",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build",
     "start": "cd backend && npm start"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "serverless-http": "^3.2.0",
+    "uuid": "^9.0.0"
   }
 }
