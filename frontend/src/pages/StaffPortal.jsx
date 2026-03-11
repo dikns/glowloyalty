@@ -2,6 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useAuth } from '../App';
 import { apiFetch } from '../api';
+import {
+  HiCamera,
+  HiUserGroup,
+  HiChartBar,
+  HiMagnifyingGlass,
+  HiCalendarDays,
+  HiStar,
+  HiHome,
+} from 'react-icons/hi2';
+import { FaUserCircle } from 'react-icons/fa';
 
 const TIER_BADGE = {
   Bronasta: 'bg-amber-100 text-amber-700',
@@ -59,7 +69,9 @@ function QRScanner({ onScan }) {
   if (status === 'error') {
     return (
       <div className="bg-red-50 border border-red-200 text-red-600 rounded-2xl p-6 text-center text-sm">
-        <div className="text-3xl mb-2">📷</div>
+        <div className="flex justify-center mb-2">
+          <HiCamera size={36} className="text-red-400" />
+        </div>
         {errorMsg}
       </div>
     );
@@ -192,7 +204,7 @@ function LogVisitForm({ customer, token, onSuccess, onCancel }) {
             disabled={loading}
             className="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-xl py-3 text-sm font-semibold disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Shranjevanje...' : 'Dodaj točke ✓'}
+            {loading ? 'Shranjevanje...' : 'Dodaj točke'}
           </button>
         </div>
       </form>
@@ -361,9 +373,9 @@ export default function StaffPortal() {
   }, [search, activeTab, loadCustomers]);
 
   const tabs = [
-    { id: 'scanner', label: 'Skeniraj', icon: '📷' },
-    { id: 'customers', label: 'Stranke', icon: '👥' },
-    { id: 'analytics', label: 'Analitika', icon: '📊' },
+    { id: 'scanner',   label: 'Skeniraj',  Icon: HiCamera },
+    { id: 'customers', label: 'Stranke',   Icon: HiUserGroup },
+    { id: 'analytics', label: 'Analitika', Icon: HiChartBar },
   ];
 
   return (
@@ -381,7 +393,7 @@ export default function StaffPortal() {
       {/* Header */}
       <div className="bg-white shadow-sm px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">🌸</span>
+          <img src="/icons/logo.svg" alt="" className="w-8 h-8" />
           <span className="font-bold text-rose-700 text-lg">GlowLoyalty</span>
           <span className="text-xs bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full font-medium">Osebje</span>
         </div>
@@ -393,15 +405,15 @@ export default function StaffPortal() {
       {/* Tab bar */}
       <div className="bg-white border-b border-gray-100 px-4">
         <div className="flex max-w-2xl mx-auto">
-          {tabs.map(({ id, label, icon }) => (
+          {tabs.map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
                 activeTab === id ? 'border-rose-500 text-rose-600' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {icon} {label}
+              <Icon size={16} /> {label}
             </button>
           ))}
         </div>
@@ -414,7 +426,7 @@ export default function StaffPortal() {
           <>
             {scanSuccess && (
               <div className="bg-green-50 border border-green-200 text-green-700 rounded-2xl p-4 text-center font-semibold">
-                ✓ {scanSuccess}
+                {scanSuccess}
               </div>
             )}
 
@@ -474,7 +486,7 @@ export default function StaffPortal() {
               <>
                 {/* Search */}
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+                  <HiMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input
                     type="search"
                     value={search}
@@ -491,7 +503,9 @@ export default function StaffPortal() {
                   )}
                   {!loadingCustomers && customers.length === 0 && (
                     <div className="bg-white rounded-3xl p-10 text-center shadow-sm">
-                      <div className="text-4xl mb-3">👥</div>
+                      <div className="flex justify-center mb-3">
+                        <HiUserGroup className="text-gray-300" size={48} />
+                      </div>
                       <p className="text-gray-500 text-sm">
                         {search ? 'Ni rezultatov za iskanje' : 'Še ni registriranih strank'}
                       </p>
@@ -532,13 +546,15 @@ export default function StaffPortal() {
               {/* Stats grid */}
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Skupaj strank', value: analytics.totalCustomers, icon: '👥', color: 'text-rose-600' },
-                  { label: 'Obiski danes', value: analytics.todayVisits, icon: '📅', color: 'text-pink-600' },
-                  { label: 'Skupaj točk', value: analytics.totalPoints?.toLocaleString(), icon: '⭐', color: 'text-amber-600' },
-                  { label: 'Skupaj obiskov', value: analytics.totalVisits, icon: '🏠', color: 'text-fuchsia-600' },
-                ].map(({ label, value, icon, color }) => (
+                  { label: 'Skupaj strank',  value: analytics.totalCustomers,                Icon: HiUserGroup,    color: 'text-rose-600' },
+                  { label: 'Obiski danes',   value: analytics.todayVisits,                  Icon: HiCalendarDays, color: 'text-pink-600' },
+                  { label: 'Skupaj točk',    value: analytics.totalPoints?.toLocaleString(), Icon: HiStar,         color: 'text-amber-600' },
+                  { label: 'Skupaj obiskov', value: analytics.totalVisits,                  Icon: HiHome,         color: 'text-fuchsia-600' },
+                ].map(({ label, value, Icon, color }) => (
                   <div key={label} className="bg-white rounded-3xl p-5 shadow-sm text-center">
-                    <div className="text-3xl mb-2">{icon}</div>
+                    <div className="flex justify-center mb-2">
+                      <Icon size={28} className={color} />
+                    </div>
                     <div className={`text-3xl font-bold ${color}`}>{value}</div>
                     <div className="text-xs text-gray-500 mt-1">{label}</div>
                   </div>
@@ -554,8 +570,10 @@ export default function StaffPortal() {
                   <div className="space-y-3">
                     {analytics.recentVisits.map((v) => (
                       <div key={v.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                        <div className="w-9 h-9 bg-rose-100 rounded-full flex items-center justify-center text-sm font-bold text-rose-600 shrink-0">
-                          {v.customer_name?.[0]?.toUpperCase() || '?'}
+                        <div className="w-9 h-9 bg-rose-100 rounded-full flex items-center justify-center shrink-0">
+                          {v.customer_name?.[0]
+                            ? <span className="text-sm font-bold text-rose-600">{v.customer_name[0].toUpperCase()}</span>
+                            : <FaUserCircle className="text-rose-300" size={20} />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-800">{v.customer_name}</p>

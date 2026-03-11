@@ -41,7 +41,9 @@ export default function Register() {
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-fuchsia-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="text-6xl mb-3">🌸</div>
+          <div className="flex justify-center mb-3">
+            <img src="/icons/logo.svg" alt="GlowLoyalty" className="w-16 h-16" />
+          </div>
           <h1 className="text-3xl font-bold text-rose-700 tracking-tight">GlowLoyalty</h1>
           <p className="text-rose-400 mt-1 text-sm">Pridružite se programu zvestobe</p>
         </div>

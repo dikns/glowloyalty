@@ -34,7 +34,9 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Branding */}
         <div className="text-center mb-8">
-          <div className="text-6xl mb-3">🌸</div>
+          <div className="flex justify-center mb-3">
+            <img src="/icons/logo.svg" alt="GlowLoyalty" className="w-16 h-16" />
+          </div>
           <h1 className="text-3xl font-bold text-rose-700 tracking-tight">GlowLoyalty</h1>
           <p className="text-rose-400 mt-1 text-sm">Vaš digitalni program zvestobe</p>
         </div>

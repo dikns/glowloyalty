@@ -2,11 +2,35 @@ import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../App';
 import { apiFetch } from '../api';
+import {
+  HiSparkles,
+  HiQrCode,
+  HiClipboardDocumentList,
+  HiCheck,
+  HiStar,
+  HiTrophy,
+} from 'react-icons/hi2';
+import { FaMedal, FaSpa } from 'react-icons/fa';
 
 const TIERS = {
-  Bronasta: { emoji: '🥉', next: 'Srebrna', nextAt: 500, prevAt: 0, badge: 'bg-amber-100 text-amber-700', perk: '5% popust na vse storitve' },
-  Srebrna:  { emoji: '🥈', next: 'Zlata',   nextAt: 1000, prevAt: 500, badge: 'bg-slate-100 text-slate-600', perk: '10% popust + brezplačna nega las' },
-  Zlata:    { emoji: '🏆', next: null,      nextAt: null, prevAt: 1000, badge: 'bg-yellow-100 text-yellow-700', perk: '20% popust + VIP obravnava' },
+  Bronasta: {
+    Icon: () => <FaMedal className="text-amber-500" size={20} />,
+    next: 'Srebrna', nextAt: 500, prevAt: 0,
+    badge: 'bg-amber-100 text-amber-700',
+    perk: '5% popust na vse storitve',
+  },
+  Srebrna: {
+    Icon: () => <FaMedal className="text-slate-400" size={20} />,
+    next: 'Zlata', nextAt: 1000, prevAt: 500,
+    badge: 'bg-slate-100 text-slate-600',
+    perk: '10% popust + brezplačna nega las',
+  },
+  Zlata: {
+    Icon: () => <HiTrophy className="text-yellow-500" size={20} />,
+    next: null, nextAt: null, prevAt: 1000,
+    badge: 'bg-yellow-100 text-yellow-700',
+    perk: '20% popust + VIP obravnava',
+  },
 };
 
 function getProgress(points, tier) {
@@ -19,7 +43,7 @@ function Header({ name, onLogout }) {
   return (
     <div className="bg-white shadow-sm px-5 py-3 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <span className="text-2xl">🌸</span>
+        <img src="/icons/logo.svg" alt="" className="w-8 h-8" />
         <span className="font-bold text-rose-700 text-lg">GlowLoyalty</span>
       </div>
       <div className="flex items-center gap-3">
@@ -34,22 +58,22 @@ function Header({ name, onLogout }) {
 
 function TabBar({ active, onChange }) {
   const tabs = [
-    { id: 'dashboard', label: 'Domov', icon: '✨' },
-    { id: 'qr', label: 'Moja QR', icon: '📱' },
-    { id: 'history', label: 'Obiski', icon: '📋' },
+    { id: 'dashboard', label: 'Domov',   Icon: HiSparkles },
+    { id: 'qr',        label: 'Moja QR', Icon: HiQrCode },
+    { id: 'history',   label: 'Obiski',  Icon: HiClipboardDocumentList },
   ];
   return (
     <div className="bg-white border-b border-rose-100 px-4">
       <div className="flex max-w-md mx-auto">
-        {tabs.map(({ id, label, icon }) => (
+        {tabs.map(({ id, label, Icon }) => (
           <button
             key={id}
             onClick={() => onChange(id)}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-1.5 ${
               active === id ? 'border-rose-500 text-rose-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            <span className="mr-1">{icon}</span>
+            <Icon size={16} />
             {label}
           </button>
         ))}
@@ -105,8 +129,8 @@ export default function CustomerPortal() {
                   <p className="text-rose-200 text-xs font-medium uppercase tracking-wider mb-1">Vaše točke</p>
                   <p className="text-6xl font-bold leading-none">{points.toLocaleString()}</p>
                 </div>
-                <span className={`${tierInfo.badge} px-3 py-1.5 rounded-full text-xs font-bold`}>
-                  {tierInfo.emoji} {tier}
+                <span className={`${tierInfo.badge} px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1`}>
+                  <tierInfo.Icon /> {tier}
                 </span>
               </div>
 
@@ -145,7 +169,7 @@ export default function CustomerPortal() {
                         isCurrent ? 'bg-rose-50 border border-rose-100' : isActive ? 'bg-gray-50' : 'opacity-40 bg-gray-50'
                       }`}
                     >
-                      <span className="text-2xl">{info.emoji}</span>
+                      <info.Icon />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800">{name}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{info.perk}</p>
@@ -154,7 +178,11 @@ export default function CustomerPortal() {
                         </p>
                       </div>
                       {isActive && (
-                        <span className="text-green-500 text-lg shrink-0">{isCurrent ? '★' : '✓'}</span>
+                        <span className="shrink-0">
+                          {isCurrent
+                            ? <HiStar className="text-rose-400" size={18} />
+                            : <HiCheck className="text-green-500" size={18} />}
+                        </span>
                       )}
                     </div>
                   );
@@ -203,7 +231,7 @@ export default function CustomerPortal() {
             </div>
 
             <div className={`inline-flex items-center gap-2 ${tierInfo.badge} px-4 py-2 rounded-full text-sm font-semibold`}>
-              {tierInfo.emoji} {tier} &nbsp;·&nbsp; {points} točk
+              <tierInfo.Icon /> {tier} &nbsp;·&nbsp; {points} točk
             </div>
 
             <p className="text-xs text-gray-400 mt-4">
@@ -221,7 +249,9 @@ export default function CustomerPortal() {
 
             {visits.length === 0 ? (
               <div className="bg-white rounded-3xl p-10 text-center shadow-sm">
-                <div className="text-5xl mb-4">💆</div>
+                <div className="flex justify-center mb-4">
+                  <FaSpa className="text-rose-300" size={48} />
+                </div>
                 <p className="font-semibold text-gray-700">Še ni zabeleženih obiskov</p>
                 <p className="text-sm text-gray-400 mt-2">
                   Ob naslednjem obisku bo osebje zabeležilo vašo storitev in dodalo točke
