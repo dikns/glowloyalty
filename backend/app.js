@@ -11,7 +11,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'glowloyalty-secret-key-2024';
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://avprwynaodyrhwydjywu.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_KQA6E4agmgtUSZpYPHrQoQ_SIFlmDEG';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2cHJ3eW5hb2R5cmh3eWRqeXd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNzEyMjcsImV4cCI6MjA4ODc0NzIyN30.ECWehUWQ0UJxG-7MXSzpQf8g9EQrgpOVsojLa6-IE5U';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const app = express();
