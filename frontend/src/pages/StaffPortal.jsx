@@ -41,7 +41,7 @@ function QRScanner({ onScan }) {
       )
       .then(() => {
         if (!shouldStop) setStatus('active');
-        else scanner.stop().catch(() => {});
+        else try { scanner.stop().catch(() => {}); } catch {}
       })
       .catch(() => {
         if (!shouldStop) {
@@ -52,7 +52,7 @@ function QRScanner({ onScan }) {
 
     return () => {
       shouldStop = true;
-      scanner.stop().catch(() => {});
+      try { scanner.stop().catch(() => {}); } catch {}
     };
   }, []);
 
