@@ -30,6 +30,11 @@ export default function App() {
     localStorage.setItem('glow_user', JSON.stringify(userData));
   };
 
+  const updateUser = (userData) => {
+    setUser(userData);
+    localStorage.setItem('glow_user', JSON.stringify(userData));
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -48,7 +53,7 @@ export default function App() {
   const home = user ? (user.role === 'staff' ? '/staff' : '/customer') : '/login';
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser }}>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={user ? <Navigate to={home} /> : <Login />} />

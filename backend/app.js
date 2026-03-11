@@ -172,6 +172,89 @@ app.get('/staff/analytics', requireStaff, async (req, res) => {
   res.json({ totalCustomers, todayVisits, totalPoints, totalVisits, recentVisits });
 });
 
+// ── Profile & Password ────────────────────────────────────────────────────────
+app.get('/auth/profile', requireAuth, async (req, res) => {
+  const { data: user, error } = await supabase
+    .from('users').select('id, name, email, phone, role, points, tier, qr_token, created_at')
+    .eq('id', req.user.id).single();
+  if (error || !user) return res.status(404).json({ error: 'Uporabnik ni najden' });
+  res.json(user);
+});
+
+app.put('/auth/profile', requireAuth, async (req, res) => {
+  const { name, email, phone } = req.body;
+  if (!name || !email) return res.status(400).json({ error: 'Ime in e-pošta sta obvezna' });
+  try {
+    const { data: existing } = await supabase
+      .from('users').select('id').eq('email', email).neq('id', req.user.id).maybeSingle();
+    if (existing) return res.status(409).json({ error: 'E-pošta je že v uporabi' });
+    const { data: user, error } = await supabase
+      .from('users').update({ name, email, phone: phone || '' })
+      .eq('id', req.user.id).select().single();
+    if (error) throw error;
+    res.json(safeUser(user));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Napaka strežnika' });
+  }
+});
+
+app.put('/auth/password', requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Vsa polja so obvezna' });
+  if (newPassword.length < 6) return res.status(400).json({ error: 'Geslo mora imeti vsaj 6 znakov' });
+  try {
+    const { data: user } = await supabase.from('users').select('*').eq('id', req.user.id).single();
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Trenutno geslo je napačno' });
+    const hash = await bcrypt.hash(newPassword, 10);
+    await supabase.from('users').update({ password_hash: hash }).eq('id', req.user.id);
+    res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Napaka strežnika' });
+  }
+});
+
+// ── Appointments ──────────────────────────────────────────────────────────────
+app.get('/staff/appointments', requireStaff, async (req, res) => {
+  const { year, month } = req.query;
+  let query = supabase.from('appointments')
+    .select('*').order('date').order('time');
+  if (year && month) {
+    const y = parseInt(year), m = parseInt(month);
+    const start = `${y}-${String(m).padStart(2, '0')}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const end = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+    query = query.gte('date', start).lte('date', end);
+  }
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+app.post('/staff/appointment', requireStaff, async (req, res) => {
+  const { customer_name, customer_id, service, date, time, notes } = req.body;
+  if (!customer_name || !service || !date || !time)
+    return res.status(400).json({ error: 'Stranka, storitev, datum in ura so obvezni' });
+  const { data, error } = await supabase.from('appointments').insert({
+    staff_id: req.user.id,
+    customer_name,
+    customer_id: customer_id || null,
+    service, date, time,
+    notes: notes || '',
+  }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete('/staff/appointment/:id', requireStaff, async (req, res) => {
+  const { error } = await supabase.from('appointments').delete()
+    .eq('id', req.params.id).eq('staff_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
 // ── Seed helper ───────────────────────────────────────────────────────────────
 async function seedStaff() {
   const { data } = await supabase.from('users').select('id').eq('role', 'staff').limit(1).single();
