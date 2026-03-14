@@ -487,9 +487,12 @@ function AppointmentCalendar({ token, initialDate }) {
     setSelectedDay(null);
   };
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
   const deleteApt = async (id) => {
     try {
       await apiFetch(`/staff/appointment/${id}`, { method: 'DELETE' }, token);
+      setConfirmDeleteId(null);
       loadAppointments();
     } catch (e) { console.error(e); }
   };
@@ -534,20 +537,37 @@ function AppointmentCalendar({ token, initialDate }) {
           ) : (
             <div className="space-y-2">
               {searchResults.map((apt) => (
-                <div key={apt.id} className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl">
-                  <div className="shrink-0 text-center w-16">
-                    <p className="text-xs text-gray-400">{new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { day: 'numeric', month: 'short' })}</p>
-                    <p className="text-sm font-bold text-rose-600">{apt.time}</p>
+                <div key={apt.id} className={`p-3 rounded-xl transition-colors ${confirmDeleteId === apt.id ? 'bg-red-50' : 'bg-rose-50'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="shrink-0 text-center w-16">
+                      <p className="text-xs text-gray-400">{new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { day: 'numeric', month: 'short' })}</p>
+                      <p className="text-sm font-bold text-rose-600">{apt.time}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{apt.customer_name}</p>
+                      <p className="text-xs text-gray-500">{apt.service}</p>
+                      {apt.notes && <p className="text-xs text-gray-400 italic mt-0.5">"{apt.notes}"</p>}
+                    </div>
+                    <button onClick={() => setConfirmDeleteId(confirmDeleteId === apt.id ? null : apt.id)}
+                      className="shrink-0 p-1.5 hover:bg-red-100 rounded-lg transition-colors">
+                      <HiTrash className="text-red-400" size={16} />
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800">{apt.customer_name}</p>
-                    <p className="text-xs text-gray-500">{apt.service}</p>
-                    {apt.notes && <p className="text-xs text-gray-400 italic mt-0.5">"{apt.notes}"</p>}
-                  </div>
-                  <button onClick={() => deleteApt(apt.id)}
-                    className="shrink-0 p-1.5 hover:bg-red-100 rounded-lg transition-colors">
-                    <HiTrash className="text-red-400" size={16} />
-                  </button>
+                  {confirmDeleteId === apt.id && (
+                    <div className="mt-2 pt-2 border-t border-red-100 flex items-center justify-between gap-2">
+                      <p className="text-xs text-red-600 font-medium">Res želite preklicati ta termin?</p>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => setConfirmDeleteId(null)}
+                          className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                          Ne
+                        </button>
+                        <button onClick={() => deleteApt(apt.id)}
+                          className="px-3 py-1.5 text-xs font-semibold bg-red-500 text-white rounded-lg hover:bg-red-600">
+                          Da, prekliči
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -620,19 +640,36 @@ function AppointmentCalendar({ token, initialDate }) {
           ) : (
             <div className="space-y-2">
               {[...selectedApts].sort((a, b) => a.time.localeCompare(b.time)).map((apt) => (
-                <div key={apt.id} className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl">
-                  <div className="text-center shrink-0 w-12">
-                    <p className="text-sm font-bold text-rose-600">{apt.time}</p>
+                <div key={apt.id} className={`p-3 rounded-xl transition-colors ${confirmDeleteId === apt.id ? 'bg-red-50' : 'bg-rose-50'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="text-center shrink-0 w-12">
+                      <p className="text-sm font-bold text-rose-600">{apt.time}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{apt.customer_name}</p>
+                      <p className="text-xs text-gray-500">{apt.service}</p>
+                      {apt.notes && <p className="text-xs text-gray-400 italic mt-0.5">"{apt.notes}"</p>}
+                    </div>
+                    <button onClick={() => setConfirmDeleteId(confirmDeleteId === apt.id ? null : apt.id)}
+                      className="shrink-0 p-1.5 hover:bg-red-100 rounded-lg transition-colors">
+                      <HiTrash className="text-red-400" size={16} />
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800">{apt.customer_name}</p>
-                    <p className="text-xs text-gray-500">{apt.service}</p>
-                    {apt.notes && <p className="text-xs text-gray-400 italic mt-0.5">"{apt.notes}"</p>}
-                  </div>
-                  <button onClick={() => deleteApt(apt.id)}
-                    className="shrink-0 p-1.5 hover:bg-red-100 rounded-lg transition-colors">
-                    <HiTrash className="text-red-400" size={16} />
-                  </button>
+                  {confirmDeleteId === apt.id && (
+                    <div className="mt-2 pt-2 border-t border-red-100 flex items-center justify-between gap-2">
+                      <p className="text-xs text-red-600 font-medium">Res želite preklicati ta termin?</p>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => setConfirmDeleteId(null)}
+                          className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+                          Ne
+                        </button>
+                        <button onClick={() => deleteApt(apt.id)}
+                          className="px-3 py-1.5 text-xs font-semibold bg-red-500 text-white rounded-lg hover:bg-red-600">
+                          Da, prekliči
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
