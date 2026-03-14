@@ -290,16 +290,19 @@ app.post('/customer/appointment', requireAuth, async (req, res) => {
   }).select().single();
   if (error) return res.status(500).json({ error: error.message });
   // Send push to all subscribed staff
-  const { data: subs } = await supabase.from('push_subscriptions').select('subscription');
+  const { data: subs, error: subErr } = await supabase.from('push_subscriptions').select('subscription');
+  if (subErr) console.error('Push subs fetch error:', subErr.message);
   if (subs?.length) {
     const payload = JSON.stringify({
       title: 'Nova rezervacija!',
       body: `${service} — ${date} ob ${time}`,
       icon: '/icons/icon-192x192.png',
     });
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       subs.map(({ subscription }) => webpush.sendNotification(JSON.parse(subscription), payload))
     );
+    const failed = results.filter((r) => r.status === 'rejected');
+    if (failed.length) console.error('Push send failed:', failed.map((r) => r.reason?.message));
   }
   res.json(data);
 });
@@ -331,6 +334,22 @@ app.post('/push/subscribe', requireAuth, async (req, res) => {
 app.delete('/push/subscribe', requireAuth, async (req, res) => {
   await supabase.from('push_subscriptions').delete().eq('user_id', String(req.user.id));
   res.json({ success: true });
+});
+
+app.post('/push/test', requireAuth, async (req, res) => {
+  const { data: subs, error: subErr } = await supabase.from('push_subscriptions').select('subscription');
+  if (subErr) return res.status(500).json({ error: 'Supabase: ' + subErr.message });
+  if (!subs?.length) return res.status(404).json({ error: 'Ni shranjenih naročnin. Najprej kliknite "Vklopi obvestila".' });
+  const payload = JSON.stringify({ title: 'Test GlowLoyalty', body: 'Push obvestila delujejo!', icon: '/icons/icon-192x192.png' });
+  const results = await Promise.allSettled(
+    subs.map(({ subscription }) => webpush.sendNotification(JSON.parse(subscription), payload))
+  );
+  const failed = results.filter((r) => r.status === 'rejected');
+  if (failed.length) {
+    console.error('Push test failed:', failed.map((r) => r.reason?.message));
+    return res.status(500).json({ error: failed[0].reason?.message || 'Push send failed' });
+  }
+  res.json({ success: true, sent: subs.length });
 });
 
 // ── Seed helper ───────────────────────────────────────────────────────────────

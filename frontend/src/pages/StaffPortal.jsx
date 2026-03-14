@@ -517,6 +517,8 @@ function PushNotificationSettings({ token }) {
   const [status, setStatus] = useState('loading'); // loading | unsupported | denied | subscribed | unsubscribed
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState('success'); // success | error
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     if (!('PushManager' in window) || !('serviceWorker' in navigator)) {
@@ -530,11 +532,14 @@ function PushNotificationSettings({ token }) {
     );
   }, []);
 
+  const showMsg = (text, type = 'success') => { setMsg(text); setMsgType(type); };
+
   const handleSubscribe = async () => {
     setSaving(true);
     setMsg('');
     try {
       const { publicKey } = await apiFetch('/push/vapid-public-key', {}, token);
+      if (!publicKey) throw new Error('VAPID ključ ni nastavljen na strežniku. Dodajte env var VAPID_PUBLIC_KEY v Netlify.');
       const reg = await navigator.serviceWorker.ready;
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') { setStatus('denied'); return; }
@@ -544,9 +549,9 @@ function PushNotificationSettings({ token }) {
       });
       await apiFetch('/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: sub }) }, token);
       setStatus('subscribed');
-      setMsg('Obvestila so vklopljena!');
+      showMsg('Obvestila so vklopljena!');
     } catch (e) {
-      setMsg('Napaka: ' + e.message);
+      showMsg('Napaka: ' + e.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -560,11 +565,24 @@ function PushNotificationSettings({ token }) {
       if (sub) await sub.unsubscribe();
       await apiFetch('/push/subscribe', { method: 'DELETE' }, token);
       setStatus('unsubscribed');
-      setMsg('Obvestila so izklopljena.');
+      showMsg('Obvestila so izklopljena.');
     } catch (e) {
-      setMsg('Napaka: ' + e.message);
+      showMsg('Napaka: ' + e.message, 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setMsg('');
+    try {
+      await apiFetch('/push/test', { method: 'POST' }, token);
+      showMsg('Testno obvestilo poslano! Preverite telefon.');
+    } catch (e) {
+      showMsg('Napaka pri pošiljanju: ' + e.message, 'error');
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -575,7 +593,11 @@ function PushNotificationSettings({ token }) {
         <h3 className="font-bold text-gray-800">Potisna obvestila</h3>
       </div>
       <p className="text-xs text-gray-400 mb-4">Prejmite obvestilo na telefon, ko stranka rezervira termin.</p>
-      {msg && <div className="text-xs text-green-700 bg-green-50 rounded-xl p-3 mb-3">{msg}</div>}
+      {msg && (
+        <div className={`text-xs rounded-xl p-3 mb-3 ${msgType === 'error' ? 'text-red-700 bg-red-50' : 'text-green-700 bg-green-50'}`}>
+          {msg}
+        </div>
+      )}
       {status === 'loading' && <p className="text-sm text-gray-400">Nalaganje...</p>}
       {status === 'unsupported' && <p className="text-sm text-gray-400">Vaš brskalnik ne podpira push obvestil.</p>}
       {status === 'denied' && (
@@ -595,6 +617,10 @@ function PushNotificationSettings({ token }) {
             <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
             Obvestila so aktivna
           </div>
+          <button onClick={handleTest} disabled={testing || saving}
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-xl py-3 text-sm transition-colors disabled:opacity-50">
+            {testing ? 'Pošiljanje...' : 'Pošlji testno obvestilo'}
+          </button>
           <button onClick={handleUnsubscribe} disabled={saving}
             className="w-full bg-white border border-gray-200 text-gray-600 font-semibold rounded-xl py-3 text-sm hover:border-rose-200 transition-colors disabled:opacity-50">
             {saving ? 'Izklapljanje...' : 'Izklopi obvestila'}
