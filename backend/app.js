@@ -1,3 +1,10 @@
+// "2026-03-14" → "14.3.2026"
+function formatDate(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${parseInt(day)}.${parseInt(m)}.${y}`;
+}
+
 // Core Express app — routes mounted WITHOUT /api prefix.
 // Local dev server (server.js) mounts this at /api.
 // Netlify function (netlify/functions/api.js) uses it directly via redirect.
@@ -271,7 +278,7 @@ app.post('/staff/appointment', requireStaff, async (req, res) => {
         JSON.parse(custSub.subscription),
         JSON.stringify({
           title: 'Termin potrjen!',
-          body: `${service} — ${date} ob ${time}`,
+          body: `${service} — ${formatDate(date)} ob ${time}`,
           icon: '/icons/icon-192x192.png',
           data: { url: '/customer?tab=booking' },
         })
@@ -300,7 +307,7 @@ app.delete('/staff/appointment/:id', requireStaff, async (req, res) => {
         JSON.parse(custSub.subscription),
         JSON.stringify({
           title: 'Termin preklican',
-          body: `Vaš termin ${apt.service} dne ${apt.date} ob ${apt.time} je bil preklican.`,
+          body: `Vaš termin ${apt.service} dne ${formatDate(apt.date)} ob ${apt.time} je bil preklican.`,
           icon: '/icons/icon-192x192.png',
           data: { url: '/customer?tab=booking' },
         })
@@ -346,7 +353,7 @@ app.post('/customer/appointment', requireAuth, async (req, res) => {
       const customerName = user?.name || 'Stranka';
       const payload = JSON.stringify({
         title: 'Nova rezervacija!',
-        body: `${customerName} — ${service}, ${date} ob ${time}`,
+        body: `${customerName} — ${service}, ${formatDate(date)} ob ${time}`,
         icon: '/icons/icon-192x192.png',
         data: { url: `/staff?tab=calendar&date=${date}` },
       });
@@ -375,7 +382,7 @@ app.delete('/customer/appointment/:id', requireAuth, async (req, res) => {
     if (subs?.length) {
       const payload = JSON.stringify({
         title: 'Rezervacija preklicana',
-        body: `${apt.customer_name} — ${apt.service}, ${apt.date} ob ${apt.time}`,
+        body: `${apt.customer_name} — ${apt.service}, ${formatDate(apt.date)} ob ${apt.time}`,
         icon: '/icons/icon-192x192.png',
         data: { url: `/staff?tab=calendar&date=${apt.date}` },
       });

@@ -54,6 +54,13 @@ function toDateStr(year, month, day) {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+// "2026-03-14" → "14.3.2026"
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-');
+  return `${parseInt(d)}.${parseInt(m)}.${y}`;
+}
+
 // ── QR Scanner ────────────────────────────────────────────────────────────────
 function QRScanner({ onScan }) {
   // permission: 'checking' | 'prompt' | 'granted' | 'denied'
@@ -540,7 +547,7 @@ function AppointmentCalendar({ token, initialDate }) {
                 <div key={apt.id} className={`p-3 rounded-xl transition-colors ${confirmDeleteId === apt.id ? 'bg-red-50' : 'bg-rose-50'}`}>
                   <div className="flex items-center gap-3">
                     <div className="shrink-0 text-center w-16">
-                      <p className="text-xs text-gray-400">{new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { day: 'numeric', month: 'short' })}</p>
+                      <p className="text-xs text-gray-400">{formatDate(apt.date)}</p>
                       <p className="text-sm font-bold text-rose-600">{apt.time}</p>
                     </div>
                     <div className="flex-1 min-w-0">

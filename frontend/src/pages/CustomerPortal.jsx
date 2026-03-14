@@ -39,6 +39,13 @@ const TIME_SLOTS = [
 ];
 
 // ── 24h booking helpers ────────────────────────────────────────────────────────
+// "2026-03-14" → "14.3.2026"
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-');
+  return `${parseInt(d)}.${parseInt(m)}.${y}`;
+}
+
 function isBookingAllowed(calDate, timeSlot) {
   const [hours, minutes] = timeSlot.split(':').map(Number);
   const bookingDateTime = new Date(calDate.year, calDate.month - 1, calDate.day, hours, minutes, 0, 0);
@@ -632,7 +639,7 @@ export default function CustomerPortal() {
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-gray-800 text-sm">{apt.service}</p>
                             <p className="text-xs text-gray-500 mt-0.5">
-                              {new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { weekday: 'short', day: 'numeric', month: 'long' })} · {apt.time}
+                              {formatDate(apt.date)} · {apt.time}
                             </p>
                           </div>
                           <button onClick={async () => {
@@ -657,7 +664,7 @@ export default function CustomerPortal() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm text-gray-700">{apt.service}</p>
                               <p className="text-xs text-gray-400">
-                                {new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { day: 'numeric', month: 'long' })} · {apt.time}
+                                {formatDate(apt.date)} · {apt.time}
                               </p>
                             </div>
                           </div>
