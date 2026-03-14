@@ -268,6 +268,11 @@ app.post('/customer/appointment', requireAuth, async (req, res) => {
   const { service, date, time, notes } = req.body;
   if (!service || !date || !time)
     return res.status(400).json({ error: 'Storitev, datum in ura so obvezni' });
+  const [h, m] = (time || '').split(':').map(Number);
+  const [y, mo, d] = (date || '').split('-').map(Number);
+  const bookingDateTime = new Date(y, mo - 1, d, h, m, 0, 0);
+  if (bookingDateTime < new Date(Date.now() + 24 * 60 * 60 * 1000))
+    return res.status(400).json({ error: 'Naročanje je možno najmanj 24 ur vnaprej.' });
   const { data: user } = await supabase.from('users').select('name').eq('id', req.user.id).single();
   const { data, error } = await supabase.from('appointments').insert({
     staff_id: null,

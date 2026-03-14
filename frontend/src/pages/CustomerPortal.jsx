@@ -37,6 +37,19 @@ const TIME_SLOTS = [
   '08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00',
 ];
 
+// ── 24h booking helpers ────────────────────────────────────────────────────────
+function isBookingAllowed(calDate, timeSlot) {
+  const [hours, minutes] = timeSlot.split(':').map(Number);
+  const bookingDateTime = new Date(calDate.year, calDate.month - 1, calDate.day, hours, minutes, 0, 0);
+  const minAllowedTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  return bookingDateTime >= minAllowedTime;
+}
+
+function isDateFullyUnavailable(calDate) {
+  // Unavailable if even the last slot (18:00) is within 24h
+  return !isBookingAllowed(calDate, '18:00');
+}
+
 // ── Booking Tab ────────────────────────────────────────────────────────────────
 function BookingTab({ token }) {
   const [step, setStep] = useState(1); // 1=service, 2=datetime, 3=confirm
@@ -49,6 +62,7 @@ function BookingTab({ token }) {
   const [error, setError] = useState('');
   const [appointments, setAppointments] = useState([]);
   const [aptsLoading, setAptsLoading] = useState(true);
+  const [show24hMsg, setShow24hMsg] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const minDate = getToday(getLocalTimeZone());
@@ -61,6 +75,10 @@ function BookingTab({ token }) {
   }, [token]);
 
   const handleBook = async () => {
+    if (!isBookingAllowed(date, time)) {
+      setError('Naročanje je možno najmanj 24 ur vnaprej.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -144,25 +162,51 @@ function BookingTab({ token }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Datum</label>
                 <Calendar
                   value={date}
-                  onChange={setDate}
+                  onChange={(newDate) => {
+                    setDate(newDate);
+                    if (time && !isBookingAllowed(newDate, time)) setTime('');
+                    setShow24hMsg(false);
+                  }}
                   minValue={minDate}
+                  isDateUnavailable={isDateFullyUnavailable}
                   className="rounded-xl border border-gray-200 p-2 mx-auto"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Ura</label>
                 <div className="grid grid-cols-4 gap-2">
-                  {TIME_SLOTS.map((t) => (
-                    <button key={t} type="button" onClick={() => setTime(t)}
-                      className={`py-2 rounded-xl text-sm font-medium border transition-colors ${
-                        time === t
-                          ? 'bg-rose-500 text-white border-rose-500'
-                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-rose-300'
-                      }`}>
-                      {t}
-                    </button>
-                  ))}
+                  {TIME_SLOTS.map((t) => {
+                    const allowed = !date || isBookingAllowed(date, t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => {
+                          if (!allowed) {
+                            setShow24hMsg(true);
+                            setTimeout(() => setShow24hMsg(false), 3500);
+                            return;
+                          }
+                          setTime(t);
+                          setShow24hMsg(false);
+                        }}
+                        className={`py-2 rounded-xl text-sm font-medium border transition-colors ${
+                          time === t
+                            ? 'bg-rose-500 text-white border-rose-500'
+                            : allowed
+                              ? 'bg-gray-50 text-gray-700 border-gray-200 hover:border-rose-300'
+                              : 'bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed'
+                        }`}>
+                        {t}
+                      </button>
+                    );
+                  })}
                 </div>
+                {show24hMsg && (
+                  <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2 mt-2">
+                    Naročanje je možno najmanj 24 ur vnaprej.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Opombe (neobvezno)</label>
