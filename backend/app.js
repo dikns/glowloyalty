@@ -15,11 +15,15 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://avprwynaodyrhwydjywu.s
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2cHJ3eW5hb2R5cmh3eWRqeXd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNzEyMjcsImV4cCI6MjA4ODc0NzIyN30.ECWehUWQ0UJxG-7MXSzpQf8g9EQrgpOVsojLa6-IE5U';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-webpush.setVapidDetails(
-  process.env.VAPID_EMAIL || 'mailto:salon@glowloyalty.com',
-  process.env.VAPID_PUBLIC_KEY || '',
-  process.env.VAPID_PRIVATE_KEY || '',
-);
+// Only configure webpush when keys are present (missing keys would throw on startup)
+const VAPID_READY = process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY;
+if (VAPID_READY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_EMAIL || 'mailto:salon@glowloyalty.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
 
 const app = express();
 app.use(cors());
@@ -289,20 +293,22 @@ app.post('/customer/appointment', requireAuth, async (req, res) => {
     notes: notes || '',
   }).select().single();
   if (error) return res.status(500).json({ error: error.message });
-  // Send push to all subscribed staff
-  const { data: subs, error: subErr } = await supabase.from('push_subscriptions').select('subscription');
-  if (subErr) console.error('Push subs fetch error:', subErr.message);
-  if (subs?.length) {
-    const payload = JSON.stringify({
-      title: 'Nova rezervacija!',
-      body: `${service} — ${date} ob ${time}`,
-      icon: '/icons/icon-192x192.png',
-    });
-    const results = await Promise.allSettled(
-      subs.map(({ subscription }) => webpush.sendNotification(JSON.parse(subscription), payload))
-    );
-    const failed = results.filter((r) => r.status === 'rejected');
-    if (failed.length) console.error('Push send failed:', failed.map((r) => r.reason?.message));
+  // Send push to all subscribed staff (only if VAPID is configured)
+  if (VAPID_READY) {
+    const { data: subs, error: subErr } = await supabase.from('push_subscriptions').select('subscription');
+    if (subErr) console.error('Push subs fetch error:', subErr.message);
+    if (subs?.length) {
+      const payload = JSON.stringify({
+        title: 'Nova rezervacija!',
+        body: `${service} — ${date} ob ${time}`,
+        icon: '/icons/icon-192x192.png',
+      });
+      const results = await Promise.allSettled(
+        subs.map(({ subscription }) => webpush.sendNotification(JSON.parse(subscription), payload))
+      );
+      const failed = results.filter((r) => r.status === 'rejected');
+      if (failed.length) console.error('Push send failed:', failed.map((r) => r.reason?.message));
+    }
   }
   res.json(data);
 });
@@ -337,6 +343,7 @@ app.delete('/push/subscribe', requireAuth, async (req, res) => {
 });
 
 app.post('/push/test', requireAuth, async (req, res) => {
+  if (!VAPID_READY) return res.status(503).json({ error: 'VAPID_PUBLIC_KEY in VAPID_PRIVATE_KEY nista nastavljeni v Netlify okoljskih spremenljivkah.' });
   const { data: subs, error: subErr } = await supabase.from('push_subscriptions').select('subscription');
   if (subErr) return res.status(500).json({ error: 'Supabase: ' + subErr.message });
   if (!subs?.length) return res.status(404).json({ error: 'Ni shranjenih naročnin. Najprej kliknite "Vklopi obvestila".' });
