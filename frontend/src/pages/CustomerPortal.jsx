@@ -69,6 +69,7 @@ function BookingTab({ token, appointments, setAppointments }) {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [show24hMsg, setShow24hMsg] = useState(false);
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
 
   const minDate = getToday(getLocalTimeZone());
 
@@ -100,12 +101,12 @@ function BookingTab({ token, appointments, setAppointments }) {
   };
 
   const handleCancel = async (id) => {
-    if (!confirm('Res želite preklicati termin?')) return;
     try {
       await apiFetch(`/customer/appointment/${id}`, { method: 'DELETE' }, token);
       setAppointments((prev) => prev.filter((a) => a.id !== id));
+      setConfirmCancelId(null);
     } catch (e) {
-      alert(e.message);
+      setConfirmCancelId(null);
     }
   };
 
@@ -546,6 +547,7 @@ export default function CustomerPortal() {
   const [visits, setVisits] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
 
   const urlParams = new URLSearchParams(window.location.search);
   const [activeTab, setActiveTab] = useState(urlParams.get('tab') || 'dashboard');
@@ -634,23 +636,36 @@ export default function CustomerPortal() {
                   ) : (
                     <div className="space-y-2">
                       {upcoming.map((apt) => (
-                        <div key={apt.id} className="flex items-center gap-3 p-3 bg-rose-50 rounded-2xl">
-                          <HiCalendarDays className="text-rose-400 shrink-0" size={20} />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-gray-800 text-sm">{apt.service}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {formatDate(apt.date)} · {apt.time}
-                            </p>
+                        <div key={apt.id} className={`p-3 rounded-2xl transition-colors ${confirmCancelId === apt.id ? 'bg-red-50' : 'bg-rose-50'}`}>
+                          <div className="flex items-center gap-3">
+                            <HiCalendarDays className={`shrink-0 ${confirmCancelId === apt.id ? 'text-red-400' : 'text-rose-400'}`} size={20} />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-gray-800 text-sm">{apt.service}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{formatDate(apt.date)} · {apt.time}</p>
+                            </div>
+                            <button onClick={() => setConfirmCancelId(confirmCancelId === apt.id ? null : apt.id)}
+                              className="p-1.5 text-gray-300 hover:text-red-400 transition-colors rounded-xl shrink-0">
+                              <HiTrash size={16} />
+                            </button>
                           </div>
-                          <button onClick={async () => {
-                            if (!confirm('Res želite preklicati termin?')) return;
-                            try {
-                              await apiFetch(`/customer/appointment/${apt.id}`, { method: 'DELETE' }, token);
-                              setAppointments((prev) => prev.filter((a) => a.id !== apt.id));
-                            } catch (e) { alert(e.message); }
-                          }} className="p-1.5 text-gray-300 hover:text-red-400 transition-colors rounded-xl shrink-0">
-                            <HiTrash size={16} />
-                          </button>
+                          {confirmCancelId === apt.id && (
+                            <div className="mt-2 pt-2 border-t border-red-100 flex items-center justify-between gap-2">
+                              <p className="text-xs text-red-600 font-medium">Res želite preklicati?</p>
+                              <div className="flex gap-2 shrink-0">
+                                <button onClick={() => setConfirmCancelId(null)}
+                                  className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 rounded-lg text-gray-600">
+                                  Ne
+                                </button>
+                                <button onClick={async () => {
+                                  await apiFetch(`/customer/appointment/${apt.id}`, { method: 'DELETE' }, token);
+                                  setAppointments((prev) => prev.filter((a) => a.id !== apt.id));
+                                  setConfirmCancelId(null);
+                                }} className="px-3 py-1.5 text-xs font-semibold bg-red-500 text-white rounded-lg">
+                                  Da, prekliči
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
