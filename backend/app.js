@@ -283,9 +283,31 @@ app.post('/staff/appointment', requireStaff, async (req, res) => {
 });
 
 app.delete('/staff/appointment/:id', requireStaff, async (req, res) => {
+  // Fetch appointment before deleting so we can notify the customer
+  const { data: apt } = await supabase.from('appointments').select('*')
+    .eq('id', req.params.id).eq('staff_id', req.user.id).single();
+
   const { error } = await supabase.from('appointments').delete()
     .eq('id', req.params.id).eq('staff_id', req.user.id);
   if (error) return res.status(500).json({ error: error.message });
+
+  // Notify customer if they have a push subscription
+  if (VAPID_READY && apt?.customer_id) {
+    const { data: custSub } = await supabase.from('customer_push_subscriptions')
+      .select('subscription').eq('user_id', String(apt.customer_id)).single();
+    if (custSub) {
+      webpush.sendNotification(
+        JSON.parse(custSub.subscription),
+        JSON.stringify({
+          title: 'Termin preklican',
+          body: `Vaš termin ${apt.service} dne ${apt.date} ob ${apt.time} je bil preklican.`,
+          icon: '/icons/icon-192x192.png',
+          data: { url: '/customer?tab=booking' },
+        })
+      ).catch((e) => console.error('Customer cancel push failed:', e.message));
+    }
+  }
+
   res.json({ success: true });
 });
 
