@@ -52,7 +52,7 @@ function isDateFullyUnavailable(calDate) {
 }
 
 // ── Booking Tab ────────────────────────────────────────────────────────────────
-function BookingTab({ token }) {
+function BookingTab({ token, appointments, setAppointments }) {
   const [step, setStep] = useState(1); // 1=service, 2=datetime, 3=confirm
   const [selectedService, setSelectedService] = useState(null);
   const [date, setDate] = useState(null);
@@ -61,19 +61,9 @@ function BookingTab({ token }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
-  const [appointments, setAppointments] = useState([]);
-  const [aptsLoading, setAptsLoading] = useState(true);
   const [show24hMsg, setShow24hMsg] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
   const minDate = getToday(getLocalTimeZone());
-
-  useEffect(() => {
-    apiFetch('/customer/appointments', {}, token)
-      .then(setAppointments)
-      .catch(console.error)
-      .finally(() => setAptsLoading(false));
-  }, [token]);
 
   const handleBook = async () => {
     if (!isBookingAllowed(date, time)) {
@@ -112,8 +102,6 @@ function BookingTab({ token }) {
     }
   };
 
-  const upcoming = appointments.filter((a) => a.date >= todayStr);
-  const past = appointments.filter((a) => a.date < todayStr);
 
   return (
     <div className="space-y-4">
@@ -232,49 +220,6 @@ function BookingTab({ token }) {
         </div>
       )}
 
-      {/* Upcoming appointments */}
-      {step === 1 && (
-        <div className="space-y-3 pt-2">
-          <h3 className="font-bold text-gray-700 px-1 text-sm uppercase tracking-wider">Moji termini ({upcoming.length})</h3>
-          {aptsLoading ? (
-            <div className="text-center text-gray-400 py-6 text-sm">Nalaganje...</div>
-          ) : upcoming.length === 0 ? (
-            <div className="bg-white rounded-2xl p-6 text-center text-sm text-gray-400 shadow-sm">
-              Nimate rezerviranih terminov.
-            </div>
-          ) : (
-            upcoming.map((apt) => (
-              <div key={apt.id} className="bg-white rounded-2xl p-4 shadow-sm flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-gray-800">{apt.service}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { weekday: 'short', day: 'numeric', month: 'long' })} · {apt.time}
-                  </p>
-                  {apt.notes && <p className="text-xs text-gray-400 mt-1 italic">"{apt.notes}"</p>}
-                </div>
-                <button onClick={() => handleCancel(apt.id)}
-                  className="shrink-0 p-2 text-gray-300 hover:text-red-400 transition-colors rounded-xl">
-                  <HiTrash size={18} />
-                </button>
-              </div>
-            ))
-          )}
-
-          {past.length > 0 && (
-            <>
-              <h3 className="font-bold text-gray-400 px-1 text-sm uppercase tracking-wider pt-2">Pretekli termini</h3>
-              {past.map((apt) => (
-                <div key={apt.id} className="bg-white rounded-2xl p-4 shadow-sm opacity-50">
-                  <p className="font-semibold text-gray-800">{apt.service}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { weekday: 'short', day: 'numeric', month: 'long' })} · {apt.time}
-                  </p>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -592,6 +537,7 @@ export default function CustomerPortal() {
   const { token, logout, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [visits, setVisits] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -601,11 +547,11 @@ export default function CustomerPortal() {
     Promise.all([
       apiFetch('/customer/profile', {}, token),
       apiFetch('/customer/visits', {}, token),
+      apiFetch('/customer/appointments', {}, token),
     ])
-      .then(([prof, vis]) => { setProfile(prof); setVisits(vis); })
+      .then(([prof, vis, apts]) => { setProfile(prof); setVisits(vis); setAppointments(apts); })
       .catch(console.error)
       .finally(() => setLoading(false));
-    // Silently re-register push subscription if permission already granted
     silentCustomerPushSubscribe(token);
   }, [token]);
 
@@ -663,6 +609,65 @@ export default function CustomerPortal() {
                 </div>
               )}
             </div>
+
+            {/* ── Moji termini ── */}
+            {(() => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const upcoming = appointments.filter((a) => a.date >= todayStr);
+              const past = appointments.filter((a) => a.date < todayStr);
+              return (
+                <div className="bg-white rounded-3xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wider">Moji termini</h3>
+                    <button onClick={() => setActiveTab('booking')}
+                      className="text-xs text-rose-500 font-semibold">+ Rezerviraj</button>
+                  </div>
+                  {upcoming.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-3">Nimate prihajajočih terminov.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {upcoming.map((apt) => (
+                        <div key={apt.id} className="flex items-center gap-3 p-3 bg-rose-50 rounded-2xl">
+                          <HiCalendarDays className="text-rose-400 shrink-0" size={20} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-gray-800 text-sm">{apt.service}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { weekday: 'short', day: 'numeric', month: 'long' })} · {apt.time}
+                            </p>
+                          </div>
+                          <button onClick={async () => {
+                            if (!confirm('Res želite preklicati termin?')) return;
+                            try {
+                              await apiFetch(`/customer/appointment/${apt.id}`, { method: 'DELETE' }, token);
+                              setAppointments((prev) => prev.filter((a) => a.id !== apt.id));
+                            } catch (e) { alert(e.message); }
+                          }} className="p-1.5 text-gray-300 hover:text-red-400 transition-colors rounded-xl shrink-0">
+                            <HiTrash size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {past.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-50">
+                      <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">Pretekli</p>
+                      <div className="space-y-1.5">
+                        {past.slice(-3).reverse().map((apt) => (
+                          <div key={apt.id} className="flex items-center gap-3 p-2.5 rounded-xl opacity-50">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-700">{apt.service}</p>
+                              <p className="text-xs text-gray-400">
+                                {new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { day: 'numeric', month: 'long' })} · {apt.time}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="bg-white rounded-3xl p-5 shadow-sm">
               <h3 className="font-bold text-gray-800 mb-4 text-sm uppercase tracking-wider">Stopnje zvestobe</h3>
@@ -728,7 +733,7 @@ export default function CustomerPortal() {
         )}
 
         {/* ── BOOKING TAB ── */}
-        {activeTab === 'booking' && <BookingTab token={token} />}
+        {activeTab === 'booking' && <BookingTab token={token} appointments={appointments} setAppointments={setAppointments} />}
 
         {/* ── HISTORY TAB ── */}
         {activeTab === 'history' && (
