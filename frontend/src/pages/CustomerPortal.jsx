@@ -12,8 +12,220 @@ import {
   HiTrophy,
   HiUser,
   HiLockClosed,
+  HiCalendarDays,
+  HiTrash,
+  HiChevronRight,
 } from 'react-icons/hi2';
 import { FaMedal, FaSpa } from 'react-icons/fa';
+
+const SERVICES = [
+  { name: 'Manikura', price: 18, duration: '45 min' },
+  { name: 'Pedikura', price: 25, duration: '60 min' },
+  { name: 'Gelski nohti', price: 38, duration: '90 min' },
+  { name: 'Barvanje las', price: 55, duration: '120 min' },
+  { name: 'Ženski haircut', price: 22, duration: '45 min' },
+  { name: 'Čiščenje obraza', price: 42, duration: '60 min' },
+  { name: 'Relaksacijska masaža', price: 48, duration: '60 min' },
+  { name: 'Oblikovanje obrvi', price: 12, duration: '20 min' },
+  { name: 'Laminacija trepalnic', price: 35, duration: '50 min' },
+  { name: 'Brazilska keratinska', price: 85, duration: '180 min' },
+];
+
+const TIME_SLOTS = [
+  '08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00',
+];
+
+// ── Booking Tab ────────────────────────────────────────────────────────────────
+function BookingTab({ token }) {
+  const [step, setStep] = useState(1); // 1=service, 2=datetime, 3=confirm
+  const [selectedService, setSelectedService] = useState(null);
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+  const [appointments, setAppointments] = useState([]);
+  const [aptsLoading, setAptsLoading] = useState(true);
+
+  const today = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    apiFetch('/customer/appointments', {}, token)
+      .then(setAppointments)
+      .catch(console.error)
+      .finally(() => setAptsLoading(false));
+  }, [token]);
+
+  const handleBook = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const apt = await apiFetch('/customer/appointment', {
+        method: 'POST',
+        body: JSON.stringify({ service: selectedService.name, date, time, notes }),
+      }, token);
+      setAppointments((prev) => [...prev, apt].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)));
+      setSuccess(`Termin za "${selectedService.name}" je uspešno rezerviran!`);
+      setStep(1);
+      setSelectedService(null);
+      setDate('');
+      setTime('');
+      setNotes('');
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async (id) => {
+    if (!confirm('Res želite preklicati termin?')) return;
+    try {
+      await apiFetch(`/customer/appointment/${id}`, { method: 'DELETE' }, token);
+      setAppointments((prev) => prev.filter((a) => a.id !== id));
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  const upcoming = appointments.filter((a) => a.date >= today);
+  const past = appointments.filter((a) => a.date < today);
+
+  return (
+    <div className="space-y-4">
+      {success && (
+        <div className="bg-green-50 border border-green-100 text-green-700 text-sm rounded-2xl p-4 flex items-center gap-2">
+          <HiCheck size={18} /> {success}
+        </div>
+      )}
+
+      {/* Step 1: Select service */}
+      {step === 1 && (
+        <div className="space-y-3">
+          <div className="px-1">
+            <h2 className="font-bold text-gray-800 text-lg">Rezervirajte termin</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Izberite storitev</p>
+          </div>
+          {SERVICES.map((svc) => (
+            <button key={svc.name} onClick={() => { setSelectedService(svc); setStep(2); }}
+              className="w-full bg-white rounded-2xl p-4 shadow-sm text-left flex items-center justify-between hover:border-rose-200 hover:shadow-md transition-all border border-transparent">
+              <div>
+                <p className="font-semibold text-gray-800">{svc.name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{svc.duration}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-rose-600 font-bold">{svc.price} €</span>
+                <HiChevronRight className="text-gray-300" size={18} />
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Step 2: Pick date & time */}
+      {step === 2 && selectedService && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-3xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <HiCalendarDays className="text-rose-500" size={20} />
+              <h3 className="font-bold text-gray-800">Izberite datum in uro</h3>
+            </div>
+            <p className="text-sm text-rose-500 font-medium mb-5">{selectedService.name} · {selectedService.price} €</p>
+
+            {error && <div className="bg-red-50 text-red-600 text-sm rounded-xl p-3 mb-4">{error}</div>}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Datum</label>
+                <input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Ura</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {TIME_SLOTS.map((t) => (
+                    <button key={t} type="button" onClick={() => setTime(t)}
+                      className={`py-2 rounded-xl text-sm font-medium border transition-colors ${
+                        time === t
+                          ? 'bg-rose-500 text-white border-rose-500'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-rose-300'
+                      }`}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Opombe (neobvezno)</label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+                  placeholder="Posebne želje ali napotki..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 resize-none" />
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => { setStep(1); setDate(''); setTime(''); setError(''); }}
+              className="flex-1 bg-white border border-gray-200 text-gray-600 font-semibold rounded-xl py-3 text-sm">
+              Nazaj
+            </button>
+            <button
+              onClick={handleBook}
+              disabled={!date || !time || loading}
+              className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-xl py-3 text-sm transition-colors disabled:opacity-50">
+              {loading ? 'Rezervacija...' : 'Rezerviraj termin'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming appointments */}
+      {step === 1 && (
+        <div className="space-y-3 pt-2">
+          <h3 className="font-bold text-gray-700 px-1 text-sm uppercase tracking-wider">Moji termini ({upcoming.length})</h3>
+          {aptsLoading ? (
+            <div className="text-center text-gray-400 py-6 text-sm">Nalaganje...</div>
+          ) : upcoming.length === 0 ? (
+            <div className="bg-white rounded-2xl p-6 text-center text-sm text-gray-400 shadow-sm">
+              Nimate rezerviranih terminov.
+            </div>
+          ) : (
+            upcoming.map((apt) => (
+              <div key={apt.id} className="bg-white rounded-2xl p-4 shadow-sm flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-gray-800">{apt.service}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { weekday: 'short', day: 'numeric', month: 'long' })} · {apt.time}
+                  </p>
+                  {apt.notes && <p className="text-xs text-gray-400 mt-1 italic">"{apt.notes}"</p>}
+                </div>
+                <button onClick={() => handleCancel(apt.id)}
+                  className="shrink-0 p-2 text-gray-300 hover:text-red-400 transition-colors rounded-xl">
+                  <HiTrash size={18} />
+                </button>
+              </div>
+            ))
+          )}
+
+          {past.length > 0 && (
+            <>
+              <h3 className="font-bold text-gray-400 px-1 text-sm uppercase tracking-wider pt-2">Pretekli termini</h3>
+              {past.map((apt) => (
+                <div key={apt.id} className="bg-white rounded-2xl p-4 shadow-sm opacity-50">
+                  <p className="font-semibold text-gray-800">{apt.service}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { weekday: 'short', day: 'numeric', month: 'long' })} · {apt.time}
+                  </p>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const TIERS = {
   Bronasta: {
@@ -194,19 +406,20 @@ function Header({ name, onLogout }) {
 // ── Tab Bar ───────────────────────────────────────────────────────────────────
 function TabBar({ active, onChange }) {
   const tabs = [
-    { id: 'dashboard', label: 'Domov',      Icon: HiSparkles },
-    { id: 'qr',        label: 'Moja QR',    Icon: HiQrCode },
-    { id: 'history',   label: 'Obiski',     Icon: HiClipboardDocumentList },
-    { id: 'settings',  label: 'Nastavitve', Icon: HiCog6Tooth },
+    { id: 'dashboard', label: 'Domov',       Icon: HiSparkles },
+    { id: 'booking',   label: 'Rezervacija', Icon: HiCalendarDays },
+    { id: 'qr',        label: 'Moja QR',     Icon: HiQrCode },
+    { id: 'history',   label: 'Obiski',      Icon: HiClipboardDocumentList },
+    { id: 'settings',  label: 'Nastavitve',  Icon: HiCog6Tooth },
   ];
   return (
-    <div className="bg-white border-b border-rose-100 px-2">
-      <div className="flex max-w-md mx-auto">
+    <div className="bg-white border-b border-rose-100 overflow-x-auto">
+      <div className="flex min-w-max max-w-md mx-auto px-2">
         {tabs.map(({ id, label, Icon }) => (
           <button
             key={id}
             onClick={() => onChange(id)}
-            className={`flex-1 py-3 text-xs font-medium border-b-2 transition-colors flex flex-col items-center gap-0.5 ${
+            className={`px-3 py-3 text-xs font-medium border-b-2 transition-colors flex flex-col items-center gap-0.5 whitespace-nowrap ${
               active === id ? 'border-rose-500 text-rose-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -354,6 +567,9 @@ export default function CustomerPortal() {
             <p className="text-xs text-gray-400 mt-4">Koda je edinstvena in varna. Nikoli je ne delite z drugimi.</p>
           </div>
         )}
+
+        {/* ── BOOKING TAB ── */}
+        {activeTab === 'booking' && <BookingTab token={token} />}
 
         {/* ── HISTORY TAB ── */}
         {activeTab === 'history' && (

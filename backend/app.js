@@ -255,6 +255,38 @@ app.delete('/staff/appointment/:id', requireStaff, async (req, res) => {
   res.json({ success: true });
 });
 
+// ── Customer Appointments ─────────────────────────────────────────────────────
+app.get('/customer/appointments', requireAuth, async (req, res) => {
+  const { data, error } = await supabase.from('appointments')
+    .select('*').eq('customer_id', String(req.user.id))
+    .order('date').order('time');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+app.post('/customer/appointment', requireAuth, async (req, res) => {
+  const { service, date, time, notes } = req.body;
+  if (!service || !date || !time)
+    return res.status(400).json({ error: 'Storitev, datum in ura so obvezni' });
+  const { data: user } = await supabase.from('users').select('name').eq('id', req.user.id).single();
+  const { data, error } = await supabase.from('appointments').insert({
+    staff_id: null,
+    customer_id: String(req.user.id),
+    customer_name: user?.name || 'Stranka',
+    service, date, time,
+    notes: notes || '',
+  }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete('/customer/appointment/:id', requireAuth, async (req, res) => {
+  const { error } = await supabase.from('appointments').delete()
+    .eq('id', req.params.id).eq('customer_id', String(req.user.id));
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
 // ── Seed helper ───────────────────────────────────────────────────────────────
 async function seedStaff() {
   const { data } = await supabase.from('users').select('id').eq('role', 'staff').limit(1).single();
