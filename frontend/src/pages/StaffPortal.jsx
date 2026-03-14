@@ -444,6 +444,8 @@ function AppointmentCalendar({ token, initialDate }) {
   const [selectedDay, setSelectedDay] = useState(base.getDate());
   const [showAddModal, setShowAddModal] = useState(false);
   const [customers, setCustomers] = useState([]);
+  const [search, setSearch] = useState('');
+  const [allAppointments, setAllAppointments] = useState(null); // null = not yet loaded
 
   const loadAppointments = useCallback(async () => {
     setLoadError('');
@@ -452,6 +454,13 @@ function AppointmentCalendar({ token, initialDate }) {
       setAppointments(data);
     } catch (e) { setLoadError(e.message); }
   }, [token, year, month]);
+
+  // Load ALL appointments once for search
+  useEffect(() => {
+    apiFetch('/staff/appointments', {}, token)
+      .then(setAllAppointments)
+      .catch(console.error);
+  }, [token]);
 
   useEffect(() => { loadAppointments(); }, [loadAppointments]);
   useEffect(() => {
@@ -485,9 +494,69 @@ function AppointmentCalendar({ token, initialDate }) {
     } catch (e) { console.error(e); }
   };
 
+  const q = search.trim().toLowerCase();
+  const searchResults = q && allAppointments
+    ? allAppointments.filter((a) =>
+        (a.customer_name || '').toLowerCase().includes(q) ||
+        (a.service || '').toLowerCase().includes(q) ||
+        (a.notes || '').toLowerCase().includes(q)
+      ).sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+    : null;
+
   return (
     <div className="space-y-4">
-      {loadError && (
+      {/* Search bar */}
+      <div className="relative">
+        <HiMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Iskanje po stranki ali storitvi..."
+          className="w-full pl-11 pr-10 py-3 bg-white rounded-2xl shadow-sm border border-transparent focus:border-rose-300 focus:outline-none text-sm"
+        />
+        {search && (
+          <button onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600">
+            <HiXMark size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Search results */}
+      {searchResults && (
+        <div className="bg-white rounded-3xl p-4 shadow-sm">
+          <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-3">
+            {searchResults.length === 0 ? 'Ni rezultatov' : `${searchResults.length} termin${searchResults.length === 1 ? '' : 'ov'}`}
+          </p>
+          {searchResults.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">Ni terminov za "{search}"</p>
+          ) : (
+            <div className="space-y-2">
+              {searchResults.map((apt) => (
+                <div key={apt.id} className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl">
+                  <div className="shrink-0 text-center w-16">
+                    <p className="text-xs text-gray-400">{new Date(apt.date + 'T00:00:00').toLocaleDateString('sl-SI', { day: 'numeric', month: 'short' })}</p>
+                    <p className="text-sm font-bold text-rose-600">{apt.time}</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">{apt.customer_name}</p>
+                    <p className="text-xs text-gray-500">{apt.service}</p>
+                    {apt.notes && <p className="text-xs text-gray-400 italic mt-0.5">"{apt.notes}"</p>}
+                  </div>
+                  <button onClick={() => deleteApt(apt.id)}
+                    className="shrink-0 p-1.5 hover:bg-red-100 rounded-lg transition-colors">
+                    <HiTrash className="text-red-400" size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Calendar (hidden while searching) */}
+      {!searchResults && loadError && (
         <div className="bg-red-50 border border-red-200 text-red-600 rounded-2xl p-4 text-sm">
           <p className="font-semibold mb-1">Napaka pri nalaganju urnika</p>
           <p className="text-xs">{loadError}</p>
@@ -496,7 +565,7 @@ function AppointmentCalendar({ token, initialDate }) {
           )}
         </div>
       )}
-      <div className="bg-white rounded-3xl p-4 shadow-sm">
+      {!searchResults && (<div className="bg-white rounded-3xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
             <HiChevronLeft size={20} className="text-gray-600" />
@@ -534,7 +603,8 @@ function AppointmentCalendar({ token, initialDate }) {
         </div>
       </div>
 
-      {selectedDay && (
+      )}
+      {!searchResults && selectedDay && (
         <div className="bg-white rounded-3xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-bold text-gray-800 text-sm">
