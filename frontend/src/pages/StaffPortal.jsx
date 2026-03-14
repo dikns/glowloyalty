@@ -435,6 +435,7 @@ function AddAppointmentModal({ date, token, customers, onClose, onSaved }) {
 
 // ── Appointment Calendar ───────────────────────────────────────────────────────
 function AppointmentCalendar({ token, initialDate }) {
+  const today = new Date();
   const base = initialDate ? new Date(initialDate + 'T12:00:00') : new Date();
   const [year, setYear] = useState(base.getFullYear());
   const [month, setMonth] = useState(base.getMonth() + 1);
