@@ -321,9 +321,30 @@ app.post('/customer/appointment', requireAuth, async (req, res) => {
 });
 
 app.delete('/customer/appointment/:id', requireAuth, async (req, res) => {
+  // Fetch appointment details before deleting (needed for notification)
+  const { data: apt } = await supabase.from('appointments').select('*')
+    .eq('id', req.params.id).eq('customer_id', String(req.user.id)).single();
+
   const { error } = await supabase.from('appointments').delete()
     .eq('id', req.params.id).eq('customer_id', String(req.user.id));
   if (error) return res.status(500).json({ error: error.message });
+
+  // Notify staff about cancellation
+  if (VAPID_READY && apt) {
+    const { data: subs } = await supabase.from('push_subscriptions').select('subscription');
+    if (subs?.length) {
+      const payload = JSON.stringify({
+        title: 'Rezervacija preklicana',
+        body: `${apt.customer_name} — ${apt.service}, ${apt.date} ob ${apt.time}`,
+        icon: '/icons/icon-192x192.png',
+        data: { url: `/staff?tab=calendar&date=${apt.date}` },
+      });
+      await Promise.allSettled(
+        subs.map(({ subscription }) => webpush.sendNotification(JSON.parse(subscription), payload))
+      );
+    }
+  }
+
   res.json({ success: true });
 });
 
