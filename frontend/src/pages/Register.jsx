@@ -11,7 +11,7 @@ export default function Register() {
   const navigate = useNavigate();
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
-  const capitalizeName = (s) => s.trim().toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const capitalizeName = (s) => s.trim().toUpperCase();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
