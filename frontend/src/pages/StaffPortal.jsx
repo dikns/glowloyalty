@@ -513,14 +513,28 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+}
+
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
 function PushNotificationSettings({ token }) {
-  const [status, setStatus] = useState('loading'); // loading | unsupported | denied | subscribed | unsubscribed
+  const [status, setStatus] = useState('loading'); // loading | unsupported | notInstalled | denied | subscribed | unsubscribed
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('success'); // success | error
   const [testing, setTesting] = useState(false);
 
   useEffect(() => {
+    // Must be installed as PWA (home screen) for push to work reliably
+    if (!isStandalone()) {
+      setStatus('notInstalled');
+      return;
+    }
     if (!('PushManager' in window) || !('serviceWorker' in navigator)) {
       setStatus('unsupported');
       return;
@@ -599,11 +613,41 @@ function PushNotificationSettings({ token }) {
         </div>
       )}
       {status === 'loading' && <p className="text-sm text-gray-400">Nalaganje...</p>}
+
+      {status === 'notInstalled' && (
+        <div className="space-y-3">
+          <div className="bg-amber-50 rounded-2xl p-4 text-xs text-amber-700 space-y-2">
+            <p className="font-semibold">Aplikacija ni nameščena kot PWA.</p>
+            <p>Da prejmete push obvestila, morate aplikacijo najprej dodati na začetni zaslon telefona:</p>
+          </div>
+          {isIOS() ? (
+            <ol className="text-xs text-gray-600 space-y-2 pl-1">
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">1.</span>Odprite <strong>glowloyalty.netlify.app</strong> v Safari</li>
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">2.</span>Tapnite ikono <strong>Skupna raba</strong> (kvadrat s puščico navzgor)</li>
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">3.</span>Izberite <strong>"Dodaj na začetni zaslon"</strong></li>
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">4.</span>Tapnite <strong>Dodaj</strong> — nato odprite app s tega ikona</li>
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">5.</span>Pridite nazaj sem in vklopite obvestila</li>
+            </ol>
+          ) : (
+            <ol className="text-xs text-gray-600 space-y-2 pl-1">
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">1.</span>Odprite <strong>glowloyalty.netlify.app</strong> v Chrome</li>
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">2.</span>Tapnite <strong>⋮</strong> meni zgoraj desno</li>
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">3.</span>Izberite <strong>"Dodaj na začetni zaslon"</strong> ali <strong>"Namesti aplikacijo"</strong></li>
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">4.</span>Odprite app z ikone na začetnem zaslonu</li>
+              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">5.</span>Pridite nazaj sem in vklopite obvestila</li>
+            </ol>
+          )}
+        </div>
+      )}
+
       {status === 'unsupported' && <p className="text-sm text-gray-400">Vaš brskalnik ne podpira push obvestil.</p>}
       {status === 'denied' && (
-        <p className="text-sm text-amber-600 bg-amber-50 rounded-xl p-3">
-          Obvestila so blokirana. Dovolite jih v nastavitvah brskalnika.
-        </p>
+        <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-700 space-y-2">
+          <p className="font-semibold">Obvestila so blokirana v nastavitvah telefona.</p>
+          {isIOS()
+            ? <p>Odprite <strong>Nastavitve → GlowLoyalty → Obvestila</strong> in jih vklopite.</p>
+            : <p>Odprite <strong>Nastavitve → Aplikacije → GlowLoyalty → Obvestila</strong> in jih dovolite.</p>}
+        </div>
       )}
       {status === 'unsubscribed' && (
         <button onClick={handleSubscribe} disabled={saving}
