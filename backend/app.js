@@ -261,6 +261,24 @@ app.post('/staff/appointment', requireStaff, async (req, res) => {
     notes: notes || '',
   }).select().single();
   if (error) return res.status(500).json({ error: error.message });
+
+  // Notify the specific customer if they have a push subscription
+  if (VAPID_READY && customer_id) {
+    const { data: custSub } = await supabase.from('customer_push_subscriptions')
+      .select('subscription').eq('user_id', String(customer_id)).single();
+    if (custSub) {
+      webpush.sendNotification(
+        JSON.parse(custSub.subscription),
+        JSON.stringify({
+          title: 'Termin potrjen!',
+          body: `${service} — ${date} ob ${time}`,
+          icon: '/icons/icon-192x192.png',
+          data: { url: '/customer?tab=booking' },
+        })
+      ).catch((e) => console.error('Customer push failed:', e.message));
+    }
+  }
+
   res.json(data);
 });
 
@@ -385,6 +403,23 @@ app.post('/push/test', requireAuth, async (req, res) => {
     return res.status(500).json({ error: failed[0].reason?.message || 'Push send failed' });
   }
   res.json({ success: true, sent: subs.length });
+});
+
+// ── Customer Push Subscriptions ───────────────────────────────────────────────
+app.post('/push/customer-subscribe', requireAuth, async (req, res) => {
+  const { subscription } = req.body;
+  if (!subscription) return res.status(400).json({ error: 'No subscription' });
+  const { error } = await supabase.from('customer_push_subscriptions').upsert({
+    user_id: String(req.user.id),
+    subscription: JSON.stringify(subscription),
+  });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.delete('/push/customer-subscribe', requireAuth, async (req, res) => {
+  await supabase.from('customer_push_subscriptions').delete().eq('user_id', String(req.user.id));
+  res.json({ success: true });
 });
 
 // ── Seed helper ───────────────────────────────────────────────────────────────

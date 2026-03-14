@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../App';
 import { apiFetch } from '../api';
@@ -15,6 +15,7 @@ import {
   HiCalendarDays,
   HiTrash,
   HiChevronRight,
+  HiBell,
 } from 'react-icons/hi2';
 import { FaMedal, FaSpa } from 'react-icons/fa';
 import { Calendar } from '../components/ui/calendar-rac';
@@ -438,6 +439,107 @@ function PasswordSettings({ token }) {
   );
 }
 
+// ── Push helpers ──────────────────────────────────────────────────────────────
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+// Called silently after login — only subscribes if permission already granted
+async function silentCustomerPushSubscribe(token) {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    const { publicKey } = await apiFetch('/push/vapid-public-key', {}, token);
+    if (!publicKey) return;
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    const sub = existing || await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    await apiFetch('/push/customer-subscribe', { method: 'POST', body: JSON.stringify({ subscription: sub }) }, token);
+  } catch (e) { console.error('Customer push subscribe:', e); }
+}
+
+// ── Customer Push Settings ────────────────────────────────────────────────────
+function CustomerPushSettings({ token }) {
+  const [status, setStatus] = useState('loading');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    if (!('PushManager' in window)) { setStatus('unsupported'); return; }
+    const perm = Notification.permission;
+    if (perm === 'denied') { setStatus('denied'); return; }
+    navigator.serviceWorker.ready.then((reg) =>
+      reg.pushManager.getSubscription().then((sub) => setStatus(sub ? 'subscribed' : 'unsubscribed'))
+    );
+  }, []);
+
+  const handleSubscribe = async () => {
+    setSaving(true);
+    setMsg('');
+    try {
+      const { publicKey } = await apiFetch('/push/vapid-public-key', {}, token);
+      if (!publicKey) throw new Error('Push obvestila niso nastavljeni na strežniku.');
+      const reg = await navigator.serviceWorker.ready;
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') { setStatus('denied'); return; }
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+      await apiFetch('/push/customer-subscribe', { method: 'POST', body: JSON.stringify({ subscription: sub }) }, token);
+      setStatus('subscribed');
+      setMsg('Obvestila so vklopljena!');
+    } catch (e) { setMsg('Napaka: ' + e.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleUnsubscribe = async () => {
+    setSaving(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+      await apiFetch('/push/customer-subscribe', { method: 'DELETE' }, token);
+      setStatus('unsubscribed');
+    } catch (e) { setMsg('Napaka: ' + e.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl p-5 shadow-sm">
+      <div className="flex items-center gap-2 mb-4">
+        <HiBell className="text-rose-500" size={20} />
+        <h3 className="font-bold text-gray-800">Obvestila o terminih</h3>
+      </div>
+      <p className="text-xs text-gray-400 mb-4">Prejmite obvestilo, ko salon potrdi ali doda vaš termin.</p>
+      {msg && <p className="text-xs text-rose-600 bg-rose-50 rounded-xl px-3 py-2 mb-3">{msg}</p>}
+      {status === 'unsupported' && <p className="text-sm text-gray-400">Vaš brskalnik ne podpira push obvestil.</p>}
+      {status === 'denied' && <p className="text-xs text-amber-700 bg-amber-50 rounded-xl p-3">Obvestila so blokirana. Omogočite jih v nastavitvah telefona.</p>}
+      {status === 'unsubscribed' && (
+        <button onClick={handleSubscribe} disabled={saving}
+          className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-xl py-3 text-sm transition-colors disabled:opacity-50">
+          {saving ? 'Vklaplanje...' : 'Vklopi obvestila o terminih'}
+        </button>
+      )}
+      {status === 'subscribed' && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 rounded-xl p-3">
+            <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+            Obvestila so aktivna
+          </div>
+          <button onClick={handleUnsubscribe} disabled={saving}
+            className="w-full bg-white border border-gray-200 text-gray-600 font-semibold rounded-xl py-3 text-sm hover:border-rose-200 transition-colors disabled:opacity-50">
+            {saving ? 'Izklapljanje...' : 'Izklopi obvestila'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Header ────────────────────────────────────────────────────────────────────
 function Header({ name, onLogout }) {
   return (
@@ -491,7 +593,9 @@ export default function CustomerPortal() {
   const [profile, setProfile] = useState(null);
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard');
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const [activeTab, setActiveTab] = useState(urlParams.get('tab') || 'dashboard');
 
   useEffect(() => {
     Promise.all([
@@ -501,6 +605,8 @@ export default function CustomerPortal() {
       .then(([prof, vis]) => { setProfile(prof); setVisits(vis); })
       .catch(console.error)
       .finally(() => setLoading(false));
+    // Silently re-register push subscription if permission already granted
+    silentCustomerPushSubscribe(token);
   }, [token]);
 
   if (loading) {
@@ -670,6 +776,7 @@ export default function CustomerPortal() {
               <ProfileSettings profile={profile} token={token} onUpdate={handleProfileUpdate} />
             )}
             <PasswordSettings token={token} />
+            <CustomerPushSettings token={token} />
           </div>
         )}
       </div>
