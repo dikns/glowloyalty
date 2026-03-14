@@ -1,17 +1,11 @@
-const CACHE_NAME = 'glowloyalty-v3';
+const CACHE_NAME = 'glowloyalty-v4';
 const urlsToCache = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
   );
-  // Do NOT skipWaiting automatically — wait for app to prompt the user
-});
-
-self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  self.skipWaiting(); // activate immediately — no waiting
 });
 
 self.addEventListener('activate', (event) => {
