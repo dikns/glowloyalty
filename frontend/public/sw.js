@@ -1,31 +1,23 @@
-const CACHE_NAME = 'glowloyalty-v4';
-const urlsToCache = ['/', '/index.html'];
+// Service worker — push notifications + auto-update only.
+// No HTML caching: Vite content-hashes all JS/CSS so they never go stale.
+// Caching index.html causes white screens after deploys — don't do it.
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
-  );
-  self.skipWaiting(); // activate immediately — no waiting
+self.addEventListener('install', () => {
+  self.skipWaiting(); // activate immediately on every new deploy
 });
 
 self.addEventListener('activate', (event) => {
+  // Wipe every cache from previous versions
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) return;
-  event.respondWith(
-    caches.match(event.request).then((response) => response || fetch(event.request))
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
+// Push notification received
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : { title: 'GlowLoyalty', body: 'Nova obvestilo' };
+  const data = event.data ? event.data.json() : { title: 'GlowLoyalty', body: 'Novo obvestilo' };
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
@@ -36,12 +28,13 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// Notification tapped — open / focus the app
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/staff';
+  const url = (event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           client.navigate(url);
           return client.focus();
