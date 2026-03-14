@@ -1,5 +1,6 @@
 // Local development entry point.
 // Mounts the API at /api to mirror the Netlify redirect: /api/* → function.
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { app, seedStaff } = require('./app');

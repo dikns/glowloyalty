@@ -13,6 +13,7 @@ import {
   HiHome,
   HiUser,
   HiLockClosed,
+  HiBell,
   HiPlus,
   HiTrash,
   HiChevronLeft,
@@ -502,6 +503,108 @@ function AppointmentCalendar({ token }) {
   );
 }
 
+// ── Push Notification Settings ────────────────────────────────────────────────
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function PushNotificationSettings({ token }) {
+  const [status, setStatus] = useState('loading'); // loading | unsupported | denied | subscribed | unsubscribed
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    if (!('PushManager' in window) || !('serviceWorker' in navigator)) {
+      setStatus('unsupported');
+      return;
+    }
+    const perm = Notification.permission;
+    if (perm === 'denied') { setStatus('denied'); return; }
+    navigator.serviceWorker.ready.then((reg) =>
+      reg.pushManager.getSubscription().then((sub) => setStatus(sub ? 'subscribed' : 'unsubscribed'))
+    );
+  }, []);
+
+  const handleSubscribe = async () => {
+    setSaving(true);
+    setMsg('');
+    try {
+      const { publicKey } = await apiFetch('/push/vapid-public-key', {}, token);
+      const reg = await navigator.serviceWorker.ready;
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') { setStatus('denied'); return; }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      await apiFetch('/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: sub }) }, token);
+      setStatus('subscribed');
+      setMsg('Obvestila so vklopljena!');
+    } catch (e) {
+      setMsg('Napaka: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUnsubscribe = async () => {
+    setSaving(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+      await apiFetch('/push/subscribe', { method: 'DELETE' }, token);
+      setStatus('unsubscribed');
+      setMsg('Obvestila so izklopljena.');
+    } catch (e) {
+      setMsg('Napaka: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl p-5 shadow-sm">
+      <div className="flex items-center gap-2 mb-3">
+        <HiBell className="text-rose-500" size={20} />
+        <h3 className="font-bold text-gray-800">Potisna obvestila</h3>
+      </div>
+      <p className="text-xs text-gray-400 mb-4">Prejmite obvestilo na telefon, ko stranka rezervira termin.</p>
+      {msg && <div className="text-xs text-green-700 bg-green-50 rounded-xl p-3 mb-3">{msg}</div>}
+      {status === 'loading' && <p className="text-sm text-gray-400">Nalaganje...</p>}
+      {status === 'unsupported' && <p className="text-sm text-gray-400">Vaš brskalnik ne podpira push obvestil.</p>}
+      {status === 'denied' && (
+        <p className="text-sm text-amber-600 bg-amber-50 rounded-xl p-3">
+          Obvestila so blokirana. Dovolite jih v nastavitvah brskalnika.
+        </p>
+      )}
+      {status === 'unsubscribed' && (
+        <button onClick={handleSubscribe} disabled={saving}
+          className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-xl py-3 text-sm transition-colors disabled:opacity-50">
+          {saving ? 'Vklaplanje...' : 'Vklopi obvestila'}
+        </button>
+      )}
+      {status === 'subscribed' && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 rounded-xl p-3">
+            <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+            Obvestila so aktivna
+          </div>
+          <button onClick={handleUnsubscribe} disabled={saving}
+            className="w-full bg-white border border-gray-200 text-gray-600 font-semibold rounded-xl py-3 text-sm hover:border-rose-200 transition-colors disabled:opacity-50">
+            {saving ? 'Izklapljanje...' : 'Izklopi obvestila'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Profile Settings ──────────────────────────────────────────────────────────
 function ProfileSettings({ profile, token, onUpdate }) {
   const [form, setForm] = useState({
@@ -869,6 +972,7 @@ export default function StaffPortal() {
                   onUpdate={(u) => { setStaffProfile((p) => ({ ...p, ...u })); updateUser(u); }} />
               : <div className="text-center py-6 text-gray-400 text-sm">Nalaganje...</div>}
             <PasswordSettings token={token} />
+            <PushNotificationSettings token={token} />
           </div>
         )}
       </div>

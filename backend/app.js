@@ -8,11 +8,18 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const webpush = require('web-push');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'glowloyalty-secret-key-2024';
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://avprwynaodyrhwydjywu.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2cHJ3eW5hb2R5cmh3eWRqeXd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNzEyMjcsImV4cCI6MjA4ODc0NzIyN30.ECWehUWQ0UJxG-7MXSzpQf8g9EQrgpOVsojLa6-IE5U';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+webpush.setVapidDetails(
+  process.env.VAPID_EMAIL || 'mailto:salon@glowloyalty.com',
+  process.env.VAPID_PUBLIC_KEY || '',
+  process.env.VAPID_PRIVATE_KEY || '',
+);
 
 const app = express();
 app.use(cors());
@@ -282,6 +289,18 @@ app.post('/customer/appointment', requireAuth, async (req, res) => {
     notes: notes || '',
   }).select().single();
   if (error) return res.status(500).json({ error: error.message });
+  // Send push to all subscribed staff
+  const { data: subs } = await supabase.from('push_subscriptions').select('subscription');
+  if (subs?.length) {
+    const payload = JSON.stringify({
+      title: 'Nova rezervacija!',
+      body: `${service} — ${date} ob ${time}`,
+      icon: '/icons/icon-192x192.png',
+    });
+    await Promise.allSettled(
+      subs.map(({ subscription }) => webpush.sendNotification(JSON.parse(subscription), payload))
+    );
+  }
   res.json(data);
 });
 
@@ -289,6 +308,28 @@ app.delete('/customer/appointment/:id', requireAuth, async (req, res) => {
   const { error } = await supabase.from('appointments').delete()
     .eq('id', req.params.id).eq('customer_id', String(req.user.id));
   if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+// ── Push Notifications ────────────────────────────────────────────────────────
+app.get('/push/vapid-public-key', (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+});
+
+app.post('/push/subscribe', requireAuth, async (req, res) => {
+  const { subscription } = req.body;
+  if (!subscription) return res.status(400).json({ error: 'No subscription' });
+  const { error } = await supabase.from('push_subscriptions').upsert({
+    id: `staff_${req.user.id}`,
+    user_id: String(req.user.id),
+    subscription: JSON.stringify(subscription),
+  });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.delete('/push/subscribe', requireAuth, async (req, res) => {
+  await supabase.from('push_subscriptions').delete().eq('user_id', String(req.user.id));
   res.json({ success: true });
 });
 

@@ -5,6 +5,34 @@ import Register from './pages/Register';
 import CustomerPortal from './pages/CustomerPortal';
 import StaffPortal from './pages/StaffPortal';
 
+function UpdateBanner() {
+  const [reg, setReg] = useState(null);
+
+  useEffect(() => {
+    const handler = (e) => setReg(e.detail);
+    window.addEventListener('swUpdateAvailable', handler);
+    return () => window.removeEventListener('swUpdateAvailable', handler);
+  }, []);
+
+  if (!reg) return null;
+
+  const handleUpdate = () => {
+    if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+  };
+
+  return (
+    <div className="fixed top-0 inset-x-0 z-50 bg-rose-600 text-white px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg text-sm">
+      <span>Na voljo je posodobitev aplikacije.</span>
+      <button
+        onClick={handleUpdate}
+        className="shrink-0 bg-white text-rose-600 font-semibold rounded-lg px-3 py-1 text-xs hover:bg-rose-50 transition-colors"
+      >
+        Posodobi
+      </button>
+    </div>
+  );
+}
+
 export const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
@@ -54,6 +82,7 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, updateUser }}>
+      <UpdateBanner />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={user ? <Navigate to={home} /> : <Login />} />
