@@ -15,14 +15,19 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://avprwynaodyrhwydjywu.s
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2cHJ3eW5hb2R5cmh3eWRqeXd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNzEyMjcsImV4cCI6MjA4ODc0NzIyN30.ECWehUWQ0UJxG-7MXSzpQf8g9EQrgpOVsojLa6-IE5U';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Only configure webpush when keys are present (missing keys would throw on startup)
-const VAPID_READY = process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY;
-if (VAPID_READY) {
-  webpush.setVapidDetails(
-    process.env.VAPID_EMAIL || 'mailto:salon@glowloyalty.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY,
-  );
+// Configure webpush — wrapped in try/catch so a bad key never crashes the whole server
+let VAPID_READY = false;
+try {
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(
+      process.env.VAPID_EMAIL || 'mailto:salon@glowloyalty.com',
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY,
+    );
+    VAPID_READY = true;
+  }
+} catch (e) {
+  console.error('VAPID setup failed (push notifications disabled):', e.message);
 }
 
 const app = express();
