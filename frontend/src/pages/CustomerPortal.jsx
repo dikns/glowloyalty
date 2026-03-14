@@ -17,6 +17,8 @@ import {
   HiChevronRight,
 } from 'react-icons/hi2';
 import { FaMedal, FaSpa } from 'react-icons/fa';
+import { Calendar } from '../components/ui/calendar-rac';
+import { today as getToday, getLocalTimeZone } from '@internationalized/date';
 
 const SERVICES = [
   { name: 'Manikura', price: 18, duration: '45 min' },
@@ -39,7 +41,7 @@ const TIME_SLOTS = [
 function BookingTab({ token }) {
   const [step, setStep] = useState(1); // 1=service, 2=datetime, 3=confirm
   const [selectedService, setSelectedService] = useState(null);
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(null);
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,7 +50,8 @@ function BookingTab({ token }) {
   const [appointments, setAppointments] = useState([]);
   const [aptsLoading, setAptsLoading] = useState(true);
 
-  const today = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toISOString().split('T')[0];
+  const minDate = getToday(getLocalTimeZone());
 
   useEffect(() => {
     apiFetch('/customer/appointments', {}, token)
@@ -63,13 +66,13 @@ function BookingTab({ token }) {
     try {
       const apt = await apiFetch('/customer/appointment', {
         method: 'POST',
-        body: JSON.stringify({ service: selectedService.name, date, time, notes }),
+        body: JSON.stringify({ service: selectedService.name, date: date.toString(), time, notes }),
       }, token);
       setAppointments((prev) => [...prev, apt].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)));
       setSuccess(`Termin za "${selectedService.name}" je uspešno rezerviran!`);
       setStep(1);
       setSelectedService(null);
-      setDate('');
+      setDate(null);
       setTime('');
       setNotes('');
       setTimeout(() => setSuccess(''), 4000);
@@ -90,8 +93,8 @@ function BookingTab({ token }) {
     }
   };
 
-  const upcoming = appointments.filter((a) => a.date >= today);
-  const past = appointments.filter((a) => a.date < today);
+  const upcoming = appointments.filter((a) => a.date >= todayStr);
+  const past = appointments.filter((a) => a.date < todayStr);
 
   return (
     <div className="space-y-4">
@@ -139,8 +142,12 @@ function BookingTab({ token }) {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Datum</label>
-                <input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300" />
+                <Calendar
+                  value={date}
+                  onChange={setDate}
+                  minValue={minDate}
+                  className="rounded-xl border border-gray-200 p-2 mx-auto"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Ura</label>
@@ -166,7 +173,7 @@ function BookingTab({ token }) {
             </div>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => { setStep(1); setDate(''); setTime(''); setError(''); }}
+            <button onClick={() => { setStep(1); setDate(null); setTime(''); setError(''); }}
               className="flex-1 bg-white border border-gray-200 text-gray-600 font-semibold rounded-xl py-3 text-sm">
               Nazaj
             </button>
