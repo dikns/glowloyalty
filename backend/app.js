@@ -303,10 +303,12 @@ app.post('/customer/appointment', requireAuth, async (req, res) => {
     const { data: subs, error: subErr } = await supabase.from('push_subscriptions').select('subscription');
     if (subErr) console.error('Push subs fetch error:', subErr.message);
     if (subs?.length) {
+      const customerName = user?.name || 'Stranka';
       const payload = JSON.stringify({
         title: 'Nova rezervacija!',
-        body: `${service} — ${date} ob ${time}`,
+        body: `${customerName} — ${service}, ${date} ob ${time}`,
         icon: '/icons/icon-192x192.png',
+        data: { url: `/staff?tab=calendar&date=${date}` },
       });
       const results = await Promise.allSettled(
         subs.map(({ subscription }) => webpush.sendNotification(JSON.parse(subscription), payload))

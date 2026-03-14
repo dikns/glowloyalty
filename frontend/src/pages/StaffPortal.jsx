@@ -434,12 +434,12 @@ function AddAppointmentModal({ date, token, customers, onClose, onSaved }) {
 }
 
 // ── Appointment Calendar ───────────────────────────────────────────────────────
-function AppointmentCalendar({ token }) {
-  const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
+function AppointmentCalendar({ token, initialDate }) {
+  const base = initialDate ? new Date(initialDate + 'T12:00:00') : new Date();
+  const [year, setYear] = useState(base.getFullYear());
+  const [month, setMonth] = useState(base.getMonth() + 1);
   const [appointments, setAppointments] = useState([]);
-  const [selectedDay, setSelectedDay] = useState(today.getDate());
+  const [selectedDay, setSelectedDay] = useState(base.getDate());
   const [showAddModal, setShowAddModal] = useState(false);
   const [customers, setCustomers] = useState([]);
 
@@ -850,7 +850,13 @@ function PasswordSettings({ token }) {
 // ── Main Staff Portal ─────────────────────────────────────────────────────────
 export default function StaffPortal() {
   const { token, logout, updateUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('scanner');
+
+  // Support deep-link from push notification: /staff?tab=calendar&date=2024-01-15
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialTab = urlParams.get('tab') || 'scanner';
+  const initialDate = urlParams.get('date') || null;
+
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const [scannerKey, setScannerKey] = useState(0);
   const [scannedCustomer, setScannedCustomer] = useState(null);
@@ -975,7 +981,7 @@ export default function StaffPortal() {
           </>
         )}
 
-        {activeTab === 'calendar' && <AppointmentCalendar token={token} />}
+        {activeTab === 'calendar' && <AppointmentCalendar token={token} initialDate={initialDate} />}
 
         {activeTab === 'customers' && (
           <>
