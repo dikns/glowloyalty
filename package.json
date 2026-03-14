@@ -2,7 +2,7 @@
   "name": "glowloyalty",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd frontend && npm install && npm run build",
+    "build": "npm install && cd frontend && npm install && npm run build",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "start": "cd backend && npm start"
@@ -14,7 +14,8 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "serverless-http": "^3.2.0",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "sharp": "^0.34.5"
