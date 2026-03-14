@@ -11,6 +11,7 @@ export default function Register() {
   const navigate = useNavigate();
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  const capitalizeName = (s) => s.trim().toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,7 +20,7 @@ export default function Register() {
     try {
       const data = await apiFetch('/auth/register', {
         method: 'POST',
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, name: capitalizeName(form.name) }),
       });
       login(data.user, data.token);
       navigate('/customer');
@@ -65,6 +66,7 @@ export default function Register() {
                   type={type}
                   value={form[key]}
                   onChange={set(key)}
+                  onBlur={key === 'name' ? (e) => setForm(f => ({ ...f, name: capitalizeName(e.target.value) })) : undefined}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-transparent transition-all"
                   placeholder={placeholder}
                   required={required}

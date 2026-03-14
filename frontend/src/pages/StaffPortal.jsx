@@ -732,6 +732,7 @@ function ProfileSettings({ profile, token, onUpdate }) {
   const [error, setError] = useState('');
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  const capitalizeName = (s) => s.trim().toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -739,7 +740,7 @@ function ProfileSettings({ profile, token, onUpdate }) {
     setError('');
     setSuccess('');
     try {
-      const updated = await apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify(form) }, token);
+      const updated = await apiFetch('/auth/profile', { method: 'PUT', body: JSON.stringify({ ...form, name: capitalizeName(form.name) }) }, token);
       onUpdate(updated);
       setSuccess('Profil je bil uspešno posodobljen!');
       setTimeout(() => setSuccess(''), 3000);
@@ -761,8 +762,9 @@ function ProfileSettings({ profile, token, onUpdate }) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Ime in priimek</label>
-          <input type="text" value={form.name} onChange={set('name')} required
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300" />
+          <input type="text" value={form.name} onChange={set('name')}
+            onBlur={(e) => setForm(f => ({ ...f, name: capitalizeName(e.target.value) }))}
+            required className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">E-pošta</label>
