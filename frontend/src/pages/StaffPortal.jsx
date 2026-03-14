@@ -56,12 +56,41 @@ function toDateStr(year, month, day) {
 
 // ── QR Scanner ────────────────────────────────────────────────────────────────
 function QRScanner({ onScan }) {
-  const [status, setStatus] = useState('starting');
+  // permission: 'checking' | 'prompt' | 'granted' | 'denied'
+  const [permission, setPermission] = useState('checking');
+  const [scanStatus, setScanStatus] = useState('idle'); // idle | starting | active | error
   const [errorMsg, setErrorMsg] = useState('');
   const onScanRef = useRef(onScan);
   useEffect(() => { onScanRef.current = onScan; });
 
+  // Check existing camera permission on mount
   useEffect(() => {
+    if (!navigator.permissions) {
+      // Permissions API not available (older iOS) — go straight to prompt state
+      setPermission('prompt');
+      return;
+    }
+    navigator.permissions.query({ name: 'camera' }).then((result) => {
+      if (result.state === 'granted') {
+        setPermission('granted');
+      } else if (result.state === 'denied') {
+        setPermission('denied');
+      } else {
+        setPermission('prompt');
+      }
+      result.onchange = () => {
+        setPermission(result.state === 'granted' ? 'granted' : result.state === 'denied' ? 'denied' : 'prompt');
+      };
+    }).catch(() => setPermission('prompt'));
+  }, []);
+
+  // Auto-start when permission confirmed as already granted
+  useEffect(() => {
+    if (permission === 'granted') startScanner();
+  }, [permission]); // eslint-disable-line
+
+  const startScanner = () => {
+    setScanStatus('starting');
     const scanner = new Html5Qrcode('qr-reader');
     let shouldStop = false;
     scanner
@@ -78,33 +107,70 @@ function QRScanner({ onScan }) {
         () => {}
       )
       .then(() => {
-        if (!shouldStop) setStatus('active');
+        if (!shouldStop) { setPermission('granted'); setScanStatus('active'); }
         else try { scanner.stop().catch(() => {}); } catch {}
       })
-      .catch(() => {
+      .catch((err) => {
         if (!shouldStop) {
-          setStatus('error');
-          setErrorMsg('Kamera ni dostopna. Preverite dovoljenja brskalnika.');
+          const denied = /permission|notallowed/i.test(err?.message || '');
+          setPermission(denied ? 'denied' : 'prompt');
+          setScanStatus('error');
+          setErrorMsg(denied
+            ? 'Dostop do kamere je blokiran. Dovolite ga v nastavitvah telefona.'
+            : 'Kamera ni dostopna. Preverite dovoljenja.');
         }
       });
-    return () => {
+    // Cleanup stored on window so the effect above can reference it
+    window.__qrScannerCleanup = () => {
       shouldStop = true;
       try { scanner.stop().catch(() => {}); } catch {}
     };
+  };
+
+  useEffect(() => {
+    return () => { if (window.__qrScannerCleanup) { window.__qrScannerCleanup(); window.__qrScannerCleanup = null; } };
   }, []);
 
-  if (status === 'error') {
+  if (permission === 'checking') {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-600 rounded-2xl p-6 text-center text-sm">
-        <div className="flex justify-center mb-2"><HiCamera size={36} className="text-red-400" /></div>
-        {errorMsg}
+      <div className="rounded-2xl bg-gray-900 flex items-center justify-center" style={{ minHeight: 300 }}>
+        <p className="text-white text-sm">Preverjanje kamere...</p>
       </div>
     );
   }
+
+  if (permission === 'denied' || (scanStatus === 'error' && permission !== 'prompt')) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-600 rounded-2xl p-6 text-center text-sm space-y-3">
+        <div className="flex justify-center"><HiCamera size={36} className="text-red-400" /></div>
+        <p>{errorMsg || 'Dostop do kamere je blokiran.'}</p>
+        <p className="text-xs text-red-400">
+          {isIOS()
+            ? 'Nastavitve → Zasebnost in varnost → Kamera → dovolite brskalnik/GlowLoyalty'
+            : 'Nastavitve → Aplikacije → Chrome → Dovoljenja → Kamera → Dovoli'}
+        </p>
+      </div>
+    );
+  }
+
+  if (permission === 'prompt') {
+    return (
+      <div className="rounded-2xl bg-gray-900 flex flex-col items-center justify-center gap-4 p-8" style={{ minHeight: 300 }}>
+        <HiCamera size={48} className="text-white opacity-60" />
+        <p className="text-white text-sm text-center opacity-80">Potrebujemo dostop do kamere za skeniranje QR kode</p>
+        <button
+          onClick={startScanner}
+          className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-xl px-6 py-3 text-sm transition-colors">
+          Dovoli kamero
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="relative rounded-2xl overflow-hidden bg-black" style={{ minHeight: 300 }}>
       <div id="qr-reader" className="w-full" />
-      {status === 'starting' && (
+      {scanStatus === 'starting' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900">
           <div className="text-white text-sm">Zaganjanje kamere...</div>
         </div>
@@ -529,12 +595,9 @@ function PushNotificationSettings({ token }) {
   const [msgType, setMsgType] = useState('success'); // success | error
   const [testing, setTesting] = useState(false);
 
+  const standalone = isStandalone();
+
   useEffect(() => {
-    // Must be installed as PWA (home screen) for push to work reliably
-    if (!isStandalone()) {
-      setStatus('notInstalled');
-      return;
-    }
     if (!('PushManager' in window) || !('serviceWorker' in navigator)) {
       setStatus('unsupported');
       return;
@@ -612,41 +675,23 @@ function PushNotificationSettings({ token }) {
           {msg}
         </div>
       )}
-      {status === 'loading' && <p className="text-sm text-gray-400">Nalaganje...</p>}
-
-      {status === 'notInstalled' && (
-        <div className="space-y-3">
-          <div className="bg-amber-50 rounded-2xl p-4 text-xs text-amber-700 space-y-2">
-            <p className="font-semibold">Aplikacija ni nameščena kot PWA.</p>
-            <p>Da prejmete push obvestila, morate aplikacijo najprej dodati na začetni zaslon telefona:</p>
-          </div>
-          {isIOS() ? (
-            <ol className="text-xs text-gray-600 space-y-2 pl-1">
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">1.</span>Odprite <strong>glowloyalty.netlify.app</strong> v Safari</li>
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">2.</span>Tapnite ikono <strong>Skupna raba</strong> (kvadrat s puščico navzgor)</li>
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">3.</span>Izberite <strong>"Dodaj na začetni zaslon"</strong></li>
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">4.</span>Tapnite <strong>Dodaj</strong> — nato odprite app s tega ikona</li>
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">5.</span>Pridite nazaj sem in vklopite obvestila</li>
-            </ol>
-          ) : (
-            <ol className="text-xs text-gray-600 space-y-2 pl-1">
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">1.</span>Odprite <strong>glowloyalty.netlify.app</strong> v Chrome</li>
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">2.</span>Tapnite <strong>⋮</strong> meni zgoraj desno</li>
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">3.</span>Izberite <strong>"Dodaj na začetni zaslon"</strong> ali <strong>"Namesti aplikacijo"</strong></li>
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">4.</span>Odprite app z ikone na začetnem zaslonu</li>
-              <li className="flex gap-2"><span className="font-bold text-rose-500 shrink-0">5.</span>Pridite nazaj sem in vklopite obvestila</li>
-            </ol>
-          )}
+      {!standalone && status !== 'subscribed' && status !== 'loading' && status !== 'unsupported' && (
+        <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-700 mb-3">
+          <p className="font-semibold mb-1">Za boljše delovanje odprite app z ikone na začetnem zaslonu.</p>
+          {isIOS()
+            ? <p>Safari → Skupna raba → "Dodaj na začetni zaslon"</p>
+            : <p>Chrome → ⋮ → "Namesti aplikacijo"</p>}
         </div>
       )}
 
+      {status === 'loading' && <p className="text-sm text-gray-400">Nalaganje...</p>}
       {status === 'unsupported' && <p className="text-sm text-gray-400">Vaš brskalnik ne podpira push obvestil.</p>}
       {status === 'denied' && (
-        <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-700 space-y-2">
-          <p className="font-semibold">Obvestila so blokirana v nastavitvah telefona.</p>
+        <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-700 space-y-1">
+          <p className="font-semibold">Obvestila so blokirana.</p>
           {isIOS()
-            ? <p>Odprite <strong>Nastavitve → GlowLoyalty → Obvestila</strong> in jih vklopite.</p>
-            : <p>Odprite <strong>Nastavitve → Aplikacije → GlowLoyalty → Obvestila</strong> in jih dovolite.</p>}
+            ? <p>Nastavitve → GlowLoyalty → Obvestila → vklopite</p>
+            : <p>Nastavitve → Aplikacije → Chrome → Dovoljenja → Obvestila → Dovoli</p>}
         </div>
       )}
       {status === 'unsubscribed' && (
