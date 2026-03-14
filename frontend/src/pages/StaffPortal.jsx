@@ -439,15 +439,17 @@ function AppointmentCalendar({ token, initialDate }) {
   const [year, setYear] = useState(base.getFullYear());
   const [month, setMonth] = useState(base.getMonth() + 1);
   const [appointments, setAppointments] = useState([]);
+  const [loadError, setLoadError] = useState('');
   const [selectedDay, setSelectedDay] = useState(base.getDate());
   const [showAddModal, setShowAddModal] = useState(false);
   const [customers, setCustomers] = useState([]);
 
   const loadAppointments = useCallback(async () => {
+    setLoadError('');
     try {
       const data = await apiFetch(`/staff/appointments?year=${year}&month=${month}`, {}, token);
       setAppointments(data);
-    } catch (e) { console.error(e); }
+    } catch (e) { setLoadError(e.message); }
   }, [token, year, month]);
 
   useEffect(() => { loadAppointments(); }, [loadAppointments]);
@@ -484,6 +486,15 @@ function AppointmentCalendar({ token, initialDate }) {
 
   return (
     <div className="space-y-4">
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-600 rounded-2xl p-4 text-sm">
+          <p className="font-semibold mb-1">Napaka pri nalaganju urnika</p>
+          <p className="text-xs">{loadError}</p>
+          {loadError.toLowerCase().includes('exist') && (
+            <p className="text-xs mt-2 text-red-500">Miza "appointments" morda ne obstaja v Supabase. Ustvarite jo v SQL urejevalniku.</p>
+          )}
+        </div>
+      )}
       <div className="bg-white rounded-3xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
