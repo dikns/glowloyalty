@@ -340,6 +340,7 @@ function CustomerVisitsModal({ customer, token, onClose, onLogVisit }) {
 // ── Add Appointment Modal ──────────────────────────────────────────────────────
 function AddAppointmentModal({ date, token, customers, onClose, onSaved }) {
   const [customerName, setCustomerName] = useState('');
+  const [customerId, setCustomerId] = useState(null); // set only when picked from dropdown
   const [service, setService] = useState('');
   const [time, setTime] = useState('09:00');
   const [notes, setNotes] = useState('');
@@ -357,12 +358,11 @@ function AddAppointmentModal({ date, token, customers, onClose, onSaved }) {
     setLoading(true);
     setError('');
     try {
-      const matched = customers.find((c) => c.name.toLowerCase() === customerName.toLowerCase());
       await apiFetch('/staff/appointment', {
         method: 'POST',
         body: JSON.stringify({
           customer_name: customerName,
-          customer_id: matched?.id || null,
+          customer_id: customerId || null,
           service, date, time, notes,
         }),
       }, token);
@@ -388,7 +388,7 @@ function AddAppointmentModal({ date, token, customers, onClose, onSaved }) {
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Stranka *</label>
             <input type="text" value={customerName}
-              onChange={(e) => { setCustomerName(e.target.value); setShowSuggestions(true); }}
+              onChange={(e) => { setCustomerName(e.target.value); setCustomerId(null); setShowSuggestions(true); }}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300"
               placeholder="Ime stranke..." required />
@@ -396,7 +396,7 @@ function AddAppointmentModal({ date, token, customers, onClose, onSaved }) {
               <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl mt-1 shadow-lg z-10 overflow-hidden">
                 {filtered.map((c) => (
                   <button key={c.id} type="button"
-                    onMouseDown={() => { setCustomerName(c.name); setShowSuggestions(false); }}
+                    onMouseDown={() => { setCustomerName(c.name); setCustomerId(c.id); setShowSuggestions(false); }}
                     className="w-full text-left px-4 py-2.5 text-sm hover:bg-rose-50 flex items-center gap-2">
                     <span className="font-medium text-gray-800">{c.name}</span>
                     <span className="text-xs text-gray-400">{c.email}</span>
