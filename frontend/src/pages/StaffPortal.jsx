@@ -500,7 +500,8 @@ function AppointmentCalendar({ token, initialDate }) {
     try {
       await apiFetch(`/staff/appointment/${id}`, { method: 'DELETE' }, token);
       setConfirmDeleteId(null);
-      loadAppointments();
+      setAppointments((prev) => prev.filter((a) => a.id !== id));
+      setAllAppointments((prev) => prev ? prev.filter((a) => a.id !== id) : prev);
     } catch (e) { console.error(e); }
   };
 
@@ -556,7 +557,7 @@ function AppointmentCalendar({ token, initialDate }) {
                       {apt.notes && <p className="text-xs text-gray-400 italic mt-0.5">"{apt.notes}"</p>}
                     </div>
                     <button onClick={() => setConfirmDeleteId(confirmDeleteId === apt.id ? null : apt.id)}
-                      className="shrink-0 p-1.5 hover:bg-red-100 rounded-lg transition-colors">
+                      className="shrink-0 flex items-center justify-center w-9 h-9 hover:bg-red-100 rounded-lg transition-colors">
                       <HiTrash className="text-red-400" size={16} />
                     </button>
                   </div>
@@ -658,7 +659,7 @@ function AppointmentCalendar({ token, initialDate }) {
                       {apt.notes && <p className="text-xs text-gray-400 italic mt-0.5">"{apt.notes}"</p>}
                     </div>
                     <button onClick={() => setConfirmDeleteId(confirmDeleteId === apt.id ? null : apt.id)}
-                      className="shrink-0 p-1.5 hover:bg-red-100 rounded-lg transition-colors">
+                      className="shrink-0 flex items-center justify-center w-9 h-9 hover:bg-red-100 rounded-lg transition-colors">
                       <HiTrash className="text-red-400" size={16} />
                     </button>
                   </div>
