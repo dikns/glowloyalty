@@ -290,28 +290,40 @@ app.post('/staff/appointment', requireStaff, async (req, res) => {
 });
 
 app.delete('/staff/appointment/:id', requireStaff, async (req, res) => {
-  // Fetch appointment before deleting so we can notify the customer
+  // Fetch appointment before deleting (no staff_id filter — staff can cancel any appointment
+  // including customer self-booked ones which have staff_id = null)
   const { data: apt } = await supabase.from('appointments').select('*')
-    .eq('id', req.params.id).eq('staff_id', req.user.id).single();
+    .eq('id', req.params.id).single();
 
   const { error } = await supabase.from('appointments').delete()
-    .eq('id', req.params.id).eq('staff_id', req.user.id);
+    .eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
 
-  // Notify customer if they have a push subscription
-  if (VAPID_READY && apt?.customer_id) {
-    const { data: custSub } = await supabase.from('customer_push_subscriptions')
-      .select('subscription').eq('user_id', String(apt.customer_id)).single();
-    if (custSub) {
-      webpush.sendNotification(
-        JSON.parse(custSub.subscription),
-        JSON.stringify({
-          title: 'Termin preklican',
-          body: `Vaš termin ${apt.service} dne ${formatDate(apt.date)} ob ${apt.time} je bil preklican.`,
-          icon: '/icons/icon-192x192.png',
-          data: { url: '/customer?tab=booking' },
-        })
-      ).catch((e) => console.error('Customer cancel push failed:', e.message));
+  if (VAPID_READY && apt) {
+    // Resolve customer_id — use stored value or fall back to name lookup
+    let customerId = apt.customer_id;
+    if (!customerId && apt.customer_name) {
+      const { data: found } = await supabase.from('users')
+        .select('id').ilike('name', apt.customer_name).single();
+      if (found) customerId = String(found.id);
+    }
+
+    if (customerId) {
+      const { data: custSub } = await supabase.from('customer_push_subscriptions')
+        .select('subscription').eq('user_id', String(customerId)).single();
+      if (custSub) {
+        webpush.sendNotification(
+          JSON.parse(custSub.subscription),
+          JSON.stringify({
+            title: 'Termin preklican',
+            body: `Vaš termin ${apt.service} dne ${formatDate(apt.date)} ob ${apt.time} je bil preklican.`,
+            icon: '/icons/icon-192x192.png',
+            data: { url: '/customer?tab=booking' },
+          })
+        ).catch((e) => console.error('Customer cancel push failed:', e.message));
+      } else {
+        console.log(`No push subscription for customer_id=${customerId}`);
+      }
     }
   }
 
